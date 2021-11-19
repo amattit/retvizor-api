@@ -67,4 +67,5 @@ extension UserInstrumentController {
 struct CreateInstrumentRequest: Content {
     let userId: String
     let ticker: String
+    let date: Date
 }

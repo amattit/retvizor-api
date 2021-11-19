@@ -9,7 +9,18 @@ public func configure(_ app: Application) throws {
     // app.middleware.use(FileMiddleware(publicDirectory: app.directory.publicDirectory))
 
     // mysql://o8ggpxenrsfpn918:ivjw9rs2xov3pcqu@d3y0lbg7abxmbuoi.chr7pe7iynqr.eu-west-1.rds.amazonaws.com:3306/abuk48ejk4359tvk
-    if let databaseURL = Environment.get("DATABASE_URL"), let config = MySQLConfiguration(url: databaseURL) {
+    if let databaseURL = Environment.get("DATABASE_URL") {
+        var tls = TLSConfiguration.makeClientConfiguration()
+        tls.certificateVerification = .none
+
+        let urlComponents = URLComponents(string: databaseURL)
+        let host = urlComponents?.host ?? ""
+        let port = urlComponents?.port ?? 3306
+        let password = urlComponents?.password ?? ""
+        let user = urlComponents?.user ?? ""
+        let database = String(urlComponents?.path.dropFirst() ?? "")
+        let config = MySQLConfiguration(hostname: host, port: port, username: user, password: password, database: database, tlsConfiguration: tls)
+        
         app.databases.use(.mysql(configuration: config), as: .mysql)
     } else {
         app.databases.use(.mysql(

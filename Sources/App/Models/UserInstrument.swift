@@ -17,7 +17,7 @@ final class UserInstrument: Model, Content {
     @Field(key: "TICKER")
     var ticker: String
     
-    @Timestamp(key: "CREATION_DATE", on: .create)
+    @Timestamp(key: "TRADEDATE", on: .create)
     var date: Date?
     
     @Field(key: "USER_ID")
@@ -30,6 +30,7 @@ final class UserInstrument: Model, Content {
         self.id = UUID().uuidString
         self.ticker = dto.ticker
         self.userId = dto.userId
+        self.date = dto.date
     }
 }
 
