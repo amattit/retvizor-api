@@ -45,7 +45,7 @@ final class UserInstrumentTip: Model, Content {
     var date: Date?
     
     @Field(key: "TIP")
-    var ticker: String
+    var tip: String
     
     @Field(key: "USER_INSTRUMENT_ID")
     var instrumentId: String
@@ -57,14 +57,17 @@ final class RecomendationQuote: Model, Content {
     @ID(custom: "ID")
     var id: String?
     
-    @Timestamp(key: "CREATION_DATE", on: .create)
+    @Field(key: "CREATION_DATE")
     var date: Date?
     
-    @Field(key: "TIP")
-    var tip: String
+    @Field(key: "TIP_PERIOD")
+    var tipPeriod: Int
     
     @Field(key: "TICKER")
     var ticker: String
+    
+    @Field(key: "BUY")
+    var buy: Int
     
     init() {}
 }

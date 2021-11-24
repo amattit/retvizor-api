@@ -10,24 +10,28 @@ import Vapor
 
 /// #API
 /// #Свои инструменты
-/// [GET] /api/v1/instruments/:id - список своих инструментов
-/// [POST] /api/v1/instruments -  добавить свой инструмент
-/// [DELETE] /api/v1/instruments/:id - удалить свой инструмент
+/// [GET] /api/v1/user/:id/instruments/ - список своих инструментов
+/// [GET] /api/v1/user/instruments/:id
+/// [POST] /api/v1/user/instruments -  добавить свой инструмент
+/// [DELETE] /api/v1/user/instruments/:id - удалить свой инструмент
 ///
 /// #Рекоментации
 /// [GET] /api/v1/recomendations/stocks - Рекомендуемые к покупке
 ///
 struct UserInstrumentController: RouteCollection {
     func boot(routes: RoutesBuilder) throws {
-        let instruments = routes.grouped("api", "v1", "instruments")
+        let instruments = routes.grouped("api", "v1", "user")
         
+        instruments.group(":id") { api in
+            api.grouped("instruments").get(use: index)
+        }
         // Получить свои инструменты
-        instruments.group(":id") { instrument in
-            instrument.get(use: index)
-            instrument.delete(use: delete)
+        instruments.group("instruments") { instrument in
+            instrument.grouped(":id").delete(use: delete)
+            instrument.grouped(":id").get(use: details)
         }
         
-        instruments.post(use: create)
+        instruments.grouped("instruments").post(use: create)
     }
 }
 
@@ -62,10 +66,61 @@ extension UserInstrumentController {
             .flatMap { $0.delete(on: req.db)}
             .transform(to: .ok)
     }
+    
+    func details(req: Request) throws -> EventLoopFuture<InstrumentWithTipResponse> {
+        guard
+            let instrumentId = req.parameters.get("id")
+        else { throw Abort(.notFound) }
+        
+        return UserInstrument
+            .find(instrumentId, on: req.db)
+            .unwrap(or: Abort(.notFound))
+            .flatMap { instrument in
+                UserInstrumentTip
+                    .query(on: req.db)
+                    .filter(\.$instrumentId, .equal, instrumentId)
+                    .all()
+                    .map { tips in
+                        InstrumentWithTipResponse(
+                            id: instrument.id ?? "",
+                            ticker: instrument.ticker,
+                            date: instrument.date ?? Date(),
+                            tips: tips.map {
+                                InstrumentWithTipResponse.Tip(
+                                    date: $0.date ?? Date(),
+                                    description: $0.tip
+                                )
+                            }
+                        )
+                    }
+        }
+    }
 }
 
 struct CreateInstrumentRequest: Content {
     let userId: String
     let ticker: String
     let date: Date
+}
+
+struct InstrumentWithTipResponse: Content {
+    let id: String
+    let ticker: String
+    let date: Date
+    let tips: [Tip]; struct Tip: Content {
+        let date: Date
+        let description: String
+    }
+}
+
+struct RecomendationController: RouteCollection {
+    func boot(routes: RoutesBuilder) throws {
+        let recomendation = routes.grouped("api", "v1", "recomendations", "stocks")
+        
+        recomendation.get(use: index)
+    }
+    
+    func index(req: Request) throws -> EventLoopFuture<[RecomendationQuote]> {
+        RecomendationQuote.query(on: req.db).filter(\.$buy, .equal, 1).all()
+    }
 }
