@@ -17,7 +17,7 @@ final class UserInstrument: Model, Content {
     @Field(key: "TICKER")
     var ticker: String
     
-    @Timestamp(key: "TRADEDATE", on: .create)
+    @Field(key: "TRADEDATE")
     var date: Date?
     
     @Field(key: "USER_ID")
