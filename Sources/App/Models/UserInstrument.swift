@@ -24,6 +24,7 @@ final class UserInstrument: Model, Content {
     var userId: String
     
     init() {
+        
     }
     
     init(with dto: CreateInstrumentRequest) {
