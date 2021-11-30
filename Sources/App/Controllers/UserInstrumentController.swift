@@ -22,6 +22,12 @@ struct UserInstrumentController: RouteCollection {
     func boot(routes: RoutesBuilder) throws {
         let instruments = routes.grouped("api", "v1", "user")
         
+        let v2 = routes.grouped("api", "v2", "user")
+        
+        v2.group(":id") { api in
+            api.grouped("instruments").get(use: indexV2)
+        }
+        
         instruments.group(":id") { api in
             api.grouped("instruments").get(use: index)
         }
@@ -46,6 +52,25 @@ extension UserInstrumentController {
             .query(on: req.db)
             .filter(\.$userId, .equal, userId)
             .all()
+    }
+    
+    func indexV2(req: Request) throws -> EventLoopFuture<[GroupedUserInstrumentsRs]> {
+        
+        guard let userId = req.parameters.get("id") else {
+            throw Abort(.notFound)
+        }
+        return UserInstrument
+            .query(on: req.db)
+            .filter(\.$userId, .equal, userId)
+            .all()
+            .map {
+                $0.reduce(into: [String:[UserInstrument]]()) { partialResult, instrument in
+                    partialResult[instrument.ticker, default: []].append(instrument)
+                }
+                .reduce(into: [GroupedUserInstrumentsRs]()) { partialResult, keyValue in
+                    partialResult.append(GroupedUserInstrumentsRs(id: UUID(), ticker: keyValue.key, instruments: keyValue.value))
+                }
+            }
     }
     
     /// Добавление нового инструмента
@@ -123,4 +148,10 @@ struct RecomendationController: RouteCollection {
     func index(req: Request) throws -> EventLoopFuture<[RecomendationQuote]> {
         RecomendationQuote.query(on: req.db).filter(\.$buy, .equal, 1).all()
     }
+}
+
+struct GroupedUserInstrumentsRs: Content {
+    let id: UUID
+    let ticker: String
+    let instruments: [UserInstrument]
 }
