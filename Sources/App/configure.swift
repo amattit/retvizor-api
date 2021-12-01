@@ -32,6 +32,7 @@ public func configure(_ app: Application) throws {
         ), as: .mysql)
     }
 //    app.migrations.add(CreateTodo())
+    app.migrations.add(CreateTradeResult())
 
     app.views.use(.leaf)
 

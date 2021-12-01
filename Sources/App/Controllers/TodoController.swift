@@ -27,3 +27,21 @@ struct TodoController: RouteCollection {
             .transform(to: .ok)
     }
 }
+
+struct TradeResultController: RouteCollection {
+    func boot(routes: RoutesBuilder) throws {
+        let tradeResult = routes.grouped("results")
+        tradeResult.post(use: create)
+        tradeResult.get(use: index)
+    }
+    
+    func create(req: Request) throws -> EventLoopFuture<HTTPStatus> {
+        let item = try req.content.decode(TradeResult.self)
+        return item.save(on: req.db)
+            .transform(to: HTTPStatus.ok)
+    }
+    
+    func index(req: Request) throws -> EventLoopFuture<[TradeResult]> {
+        return TradeResult.query(on: req.db).all()
+    }
+}
