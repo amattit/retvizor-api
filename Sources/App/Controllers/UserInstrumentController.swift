@@ -78,8 +78,13 @@ extension UserInstrumentController {
         let dto = try req.content.decode(CreateInstrumentRequest.self)
         let instrument = UserInstrument(with: dto)
         
-        return instrument.save(on: req.db)
+        let response = instrument.save(on: req.db)
             .map { instrument }
+        return req.client.get("https://retvizor.herokuapp.com/user_instruments/\(instrument.id ?? "")").flatMap { data in
+            req.logger.info("call python server on https://retvizor.herokuapp.com/user_instruments/\(instrument.id ?? "")")
+            req.logger.info("request returned status: \(data.status.code.description)")
+            return response
+        }
     }
     
     /// Удаление своего инструмента
