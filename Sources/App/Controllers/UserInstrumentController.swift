@@ -110,20 +110,45 @@ extension UserInstrumentController {
                     .query(on: req.db)
                     .filter(\.$instrumentId, .equal, instrumentId)
                     .all()
-                    .map { tips in
-                        InstrumentWithTipResponse(
-                            id: instrument.id ?? "",
-                            ticker: instrument.ticker,
-                            date: instrument.date ?? Date(),
-                            tips: tips.map {
-                                InstrumentWithTipResponse.Tip(
-                                    date: $0.date ?? Date(),
-                                    description: $0.tip
+                    .flatMap { tips in
+                        Quotes.query(on: req.db)
+                            .group(.and) { group in
+                                group
+                                    .filter(\.$ticker, .equal, instrument.ticker)
+                                    .filter(\.$date, .lessThanOrEqual, Date())
+                                    .filter(\.$date, .greaterThan, instrument.date)
+                            }
+                            .all()
+                            .map { quotes in
+                                InstrumentWithTipResponse(
+                                    id: instrument.id ?? "",
+                                    ticker: instrument.ticker,
+                                    date: instrument.date ?? Date(),
+                                    tips: tips.map {
+                                        InstrumentWithTipResponse.Tip(
+                                            date: $0.date ?? Date(),
+                                            description: $0.tip
+                                        )
+                                    },
+                                    quotes: mapQuotes(quotes: quotes)
                                 )
                             }
-                        )
                     }
+            }
+    }
+    
+    func mapQuotes(quotes: [Quotes]) -> [Double] {
+        var items = [Double]()
+        
+        for quote in quotes {
+            if quote == quotes.first {
+                items.append(quote.openPrice)
+            } else {
+                items.append(quote.closePrice)
+            }
         }
+        
+        return items
     }
 }
 
@@ -141,6 +166,8 @@ struct InstrumentWithTipResponse: Content {
         let date: Date
         let description: String
     }
+    
+    let quotes: [Double]
 }
 
 struct RecomendationController: RouteCollection {

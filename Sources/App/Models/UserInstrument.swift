@@ -71,3 +71,32 @@ final class RecomendationQuote: Model, Content {
     
     init() {}
 }
+
+final class Quotes: Model, Content, Equatable {
+    static func == (lhs: Quotes, rhs: Quotes) -> Bool {
+        lhs.openPrice == rhs.openPrice
+        && lhs.date == rhs.date
+        && lhs.closePrice == rhs.closePrice
+        && lhs.ticker == rhs.ticker
+    }
+    
+    
+    @ID(custom: "ID")
+    var id: String?
+    
+    static var schema = "quotes"
+    
+    @Field(key: "TRADEDATE")
+    var date: Date?
+    
+    @Field(key: "OPEN_PRICE")
+    var openPrice: Double
+    
+    @Field(key: "CLOSE_PRICE")
+    var closePrice: Double
+    
+    @Field(key: "TICKER")
+    var ticker: String
+    
+    init() {}
+}
