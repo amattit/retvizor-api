@@ -19,6 +19,7 @@ import Vapor
 /// [GET] /api/v1/recomendations/stocks - Рекомендуемые к покупке
 ///
 struct UserInstrumentController: RouteCollection {
+    static var calculatedUserInstrumentsTip: [String: Date] = [:]
     func boot(routes: RoutesBuilder) throws {
         let instruments = routes.grouped("api", "v1", "user")
         
@@ -80,9 +81,12 @@ extension UserInstrumentController {
         
         let response = instrument.save(on: req.db)
             .map { instrument }
-        return req.client.get("https://retvizor.herokuapp.com/user_instruments/\(instrument.id ?? "")").flatMap { data in
+        return req.client.get("https://retvizor.herokuapp.com/user_instruments/\(instrument.id ?? "")").tryFlatMap { data in
             req.logger.info("call python server on https://retvizor.herokuapp.com/user_instruments/\(instrument.id ?? "")")
             req.logger.info("request returned status: \(data.status.code.description)")
+            if data.status.code == 200 {
+                Self.calculatedUserInstrumentsTip[try instrument.requireID()] = Date().startOfDay
+            }
             return response
         }
     }
@@ -101,43 +105,54 @@ extension UserInstrumentController {
         guard
             let instrumentId = req.parameters.get("id")
         else { throw Abort(.notFound) }
-        return req.client.get("https://retvizor.herokuapp.com/user_instruments/\(instrumentId)").flatMap { data in
-            req.logger.info("call python server on https://retvizor.herokuapp.com/user_instruments/\(instrumentId)")
-            req.logger.info("request returned status: \(data.status.code.description)")
-            return UserInstrument
-                .find(instrumentId, on: req.db)
-                .unwrap(or: Abort(.notFound))
-                .flatMap { instrument in
-                    UserInstrumentTip
-                        .query(on: req.db)
-                        .filter(\.$instrumentId, .equal, instrumentId)
-                        .all()
-                        .flatMap { tips in
-                            Quotes.query(on: req.db)
-                                .group(.and) { group in
-                                    group
-                                        .filter(\.$ticker, .equal, instrument.ticker)
-                                        .filter(\.$date, .lessThanOrEqual, Date())
-                                        .filter(\.$date, .greaterThan, instrument.date)
-                                }
-                                .all()
-                                .map { quotes in
-                                    InstrumentWithTipResponse(
-                                        id: instrument.id ?? "",
-                                        ticker: instrument.ticker,
-                                        date: instrument.date ?? Date(),
-                                        tips: tips.map {
-                                            InstrumentWithTipResponse.Tip(
-                                                date: $0.date ?? Date(),
-                                                description: $0.tip
-                                            )
-                                        },
-                                        quotes: mapQuotes(quotes: quotes)
-                                    )
-                                }
-                        }
+        if Self.calculatedUserInstrumentsTip[instrumentId] == Date().startOfDay {
+            return try getDetails(req: req, instrumentId: instrumentId)
+        } else {
+            return req.client.get("https://retvizor.herokuapp.com/user_instruments/\(instrumentId)").tryFlatMap { data in
+                req.logger.info("call python server on https://retvizor.herokuapp.com/user_instruments/\(instrumentId)")
+                req.logger.info("request returned status: \(data.status.code.description)")
+                if data.status.code == 200 {
+                    Self.calculatedUserInstrumentsTip[instrumentId] = Date().startOfDay
                 }
+                return try getDetails(req: req, instrumentId: instrumentId)
+            }
         }
+    }
+    
+    func getDetails(req: Request, instrumentId: String) throws -> EventLoopFuture<InstrumentWithTipResponse> {
+        return UserInstrument
+            .find(instrumentId, on: req.db)
+            .unwrap(or: Abort(.notFound))
+            .flatMap { instrument in
+                UserInstrumentTip
+                    .query(on: req.db)
+                    .filter(\.$instrumentId, .equal, instrumentId)
+                    .all()
+                    .flatMap { tips in
+                        Quotes.query(on: req.db)
+                            .group(.and) { group in
+                                group
+                                    .filter(\.$ticker, .equal, instrument.ticker)
+                                    .filter(\.$date, .lessThanOrEqual, Date())
+                                    .filter(\.$date, .greaterThan, instrument.date)
+                            }
+                            .all()
+                            .map { quotes in
+                                InstrumentWithTipResponse(
+                                    id: instrument.id ?? "",
+                                    ticker: instrument.ticker,
+                                    date: instrument.date ?? Date(),
+                                    tips: tips.map {
+                                        InstrumentWithTipResponse.Tip(
+                                            date: $0.date ?? Date(),
+                                            description: $0.tip
+                                        )
+                                    },
+                                    quotes: mapQuotes(quotes: quotes)
+                                )
+                            }
+                    }
+            }
     }
     
     func mapQuotes(quotes: [Quotes]) -> [Double] {
@@ -189,4 +204,11 @@ struct GroupedUserInstrumentsRs: Content {
     let id: UUID
     let ticker: String
     let instruments: [UserInstrument]
+}
+
+extension Date {
+    var startOfDay: Date {
+        let calendar = Calendar.current
+        return calendar.startOfDay(for: self)
+    }
 }
