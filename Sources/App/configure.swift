@@ -33,6 +33,11 @@ public func configure(_ app: Application) throws {
     }
 //    app.migrations.add(CreateTodo())
     app.migrations.add(CreateTradeResult())
+    app.migrations.add(CreateUserInstruments())
+    app.migrations.add(CreateUserInstrumentTip())
+    app.migrations.add(CreateRecomendationQuote())
+    app.migrations.add(CreateQuotes())
+    app.migrations.add(CreateQuotesActuality())
 
     app.views.use(.leaf)
 
