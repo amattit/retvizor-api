@@ -28,7 +28,7 @@ struct CreateUserInstrumentTip: Migration {
             .id()
             .field("CREATION_DATE", .date, .required)
             .field("TIP", .string, .required)
-            .field("USER_INSTRUMENT_ID", .string, .required, .references(UserInstrument.schema, "ID"))
+            .field("USER_INSTRUMENT_ID", .string, .required)
             .create()
     }
     
