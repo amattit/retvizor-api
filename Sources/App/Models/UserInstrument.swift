@@ -11,16 +11,16 @@ import Vapor
 final class UserInstrument: Model, Content {
     static let schema = "user_instrument"
     
-    @ID(custom: "ID")
-    var id: String?
+    @ID(key: .id)
+    var id: UUID?
     
-    @Field(key: "TICKER")
+    @Field(key: "ticker")
     var ticker: String
     
-    @Field(key: "TRADEDATE")
+    @Field(key: "tradeDate")
     var date: Date?
     
-    @Field(key: "USER_ID")
+    @Field(key: "userId")
     var userId: String
     
     init() {
@@ -38,35 +38,35 @@ final class UserInstrument: Model, Content {
 final class UserInstrumentTip: Model, Content {
     static let schema = "user_instrument_tip"
     
-    @ID(custom: "ID")
-    var id: String?
+    @ID(key: .id)
+    var id: UUID?
     
-    @Timestamp(key: "CREATION_DATE", on: .create)
+    @Timestamp(key: "create", on: .create)
     var date: Date?
     
-    @Field(key: "TIP")
+    @Field(key: "tip")
     var tip: String
     
-    @Field(key: "USER_INSTRUMENT_ID")
+    @Field(key: "userInstrumentId")
     var instrumentId: String
 }
 
 final class RecomendationQuote: Model, Content {
     static let schema = "recomendation_quotes"
     
-    @ID(custom: "ID")
-    var id: String?
+    @ID(key: .id)
+    var id: UUID?
     
-    @Field(key: "CREATION_DATE")
+    @Field(key: "create")
     var date: Date?
     
-    @Field(key: "TIP_PERIOD")
+    @Field(key: "tipPeriod")
     var tipPeriod: Int
     
-    @Field(key: "TICKER")
+    @Field(key: "ticker")
     var ticker: String
     
-    @Field(key: "BUY")
+    @Field(key: "buy")
     var buy: Int
     
     init() {}
@@ -81,21 +81,21 @@ final class Quotes: Model, Content, Equatable {
     }
     
     
-    @ID(custom: "ID")
-    var id: String?
+    @ID(key: .id)
+    var id: UUID?
     
     static var schema = "quotes"
     
-    @Field(key: "TRADEDATE")
+    @Field(key: "tradeDate")
     var date: Date?
     
-    @Field(key: "OPEN_PRICE")
+    @Field(key: "openPrice")
     var openPrice: Double
     
-    @Field(key: "CLOSE_PRICE")
+    @Field(key: "closePrice")
     var closePrice: Double
     
-    @Field(key: "TICKER")
+    @Field(key: "ticker")
     var ticker: String
     
     init() {}

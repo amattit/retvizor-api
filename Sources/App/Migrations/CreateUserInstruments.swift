@@ -12,9 +12,9 @@ struct CreateUserInstruments: Migration {
     func prepare(on database: Database) -> EventLoopFuture<Void> {
         return database.schema(UserInstrument.schema)
             .id()
-            .field("TICKER", .string, .required)
-            .field("TRADEDATE", .date, .required)
-            .field("USER_ID", .string, .required)
+            .field("ticker", .string, .required)
+            .field("tradeDate", .date, .required)
+            .field("userId", .string, .required)
             .create()
     }
     func revert(on database: Database) -> EventLoopFuture<Void> {
@@ -26,9 +26,9 @@ struct CreateUserInstrumentTip: Migration {
     func prepare(on database: Database) -> EventLoopFuture<Void> {
         return database.schema(UserInstrumentTip.schema)
             .id()
-            .field("CREATION_DATE", .date, .required)
-            .field("TIP", .string, .required)
-            .field("USER_INSTRUMENT_ID", .string, .required)
+            .field("create", .date, .required)
+            .field("tip", .string, .required)
+            .field("userInstrumentId", .string, .required)
             .create()
     }
     
@@ -41,10 +41,10 @@ struct CreateRecomendationQuote: Migration {
     func prepare(on database: Database) -> EventLoopFuture<Void> {
         return database.schema(RecomendationQuote.schema)
             .id()
-            .field("CREATION_DATE", .date, .required)
-            .field("TICKER", .string, .required)
-            .field("TIP_PERIOD", .int)
-            .field("BUY", .int)
+            .field("create", .date, .required)
+            .field("ticker", .string, .required)
+            .field("tipPeriod", .int)
+            .field("buy", .int)
             .create()
     }
     
@@ -57,13 +57,13 @@ struct CreateQuotes: Migration {
     func prepare(on database: Database) -> EventLoopFuture<Void> {
         return database.schema(Quotes.schema)
             .id()
-            .field("TICKER", .string, .required)
-            .field("TRADEDATE", .date, .required)
-            .field("OPEN_PRICE", .double)
-            .field("CLOSE_PRICE", .double)
-            .field("HIGH_PRICE", .double)
-            .field("LOW_PRICE", .double)
-            .field("VOLUME", .double)
+            .field("ticker", .string, .required)
+            .field("tradeDate", .date, .required)
+            .field("openPrice", .double)
+            .field("closePrice", .double)
+            .field("highPrice", .double)
+            .field("lowPrice", .double)
+            .field("volume", .double)
             .create()
     }
     
@@ -76,8 +76,8 @@ struct CreateQuotesActuality: Migration {
     func prepare(on database: Database) -> EventLoopFuture<Void> {
         return database.schema("quotes_actuality")
             .id()
-            .field("TICKER", .string, .required)
-            .field("TRADEDATE", .date, .required)
+            .field("ticker", .string, .required)
+            .field("tradeDate", .date, .required)
             .create()
     }
     

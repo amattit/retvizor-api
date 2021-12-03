@@ -24,16 +24,16 @@ final class TradeResult: Model, Content {
     @ID(key: .id)
     var id: UUID?
     
-    @Field(key: "TRADE_DATE")
+    @Field(key: "tradeDate")
     var date: Date?
     
-    @Field(key: "IS_GOOD")
+    @Field(key: "isGood")
     var isGood: Bool
     
-    @Field(key: "INFO")
+    @Field(key: "info")
     var info: String?
     
-    @Field(key: "USER_ID")
+    @Field(key: "userId")
     var userId: String
     
     init() {}
