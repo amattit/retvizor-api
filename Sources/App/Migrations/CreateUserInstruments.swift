@@ -14,7 +14,7 @@ struct CreateUserInstruments: Migration {
             .id()
             .field("ticker", .string, .required)
             .field("tradeDate", .date, .required)
-            .field("userId", .string, .required)
+            .field("userId", .uuid, .required)
             .create()
     }
     func revert(on database: Database) -> EventLoopFuture<Void> {
@@ -28,7 +28,7 @@ struct CreateUserInstrumentTip: Migration {
             .id()
             .field("create", .date, .required)
             .field("tip", .string, .required)
-            .field("userInstrumentId", .string, .required)
+            .field("userInstrumentId", .uuid, .required)
             .create()
     }
     

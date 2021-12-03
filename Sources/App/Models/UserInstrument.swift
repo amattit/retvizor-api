@@ -21,14 +21,14 @@ final class UserInstrument: Model, Content {
     var date: Date?
     
     @Field(key: "userId")
-    var userId: String
+    var userId: UUID
     
     init() {
         
     }
     
     init(with dto: CreateInstrumentRequest) {
-        self.id = UUID().uuidString
+        self.id = UUID()
         self.ticker = dto.ticker
         self.userId = dto.userId
         self.date = dto.date
@@ -48,7 +48,7 @@ final class UserInstrumentTip: Model, Content {
     var tip: String
     
     @Field(key: "userInstrumentId")
-    var instrumentId: String
+    var instrumentId: UUID
 }
 
 final class RecomendationQuote: Model, Content {

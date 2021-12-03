@@ -20,7 +20,7 @@ struct CreateTradeResult: Migration {
             .field("tradeDate", .date)
             .field("isGood", .bool, .required)
             .field("info", .string)
-            .field("userId", .string, .required)
+            .field("userId", .uuid, .required)
             .create()
     }
     
