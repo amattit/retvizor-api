@@ -18,6 +18,18 @@ import Vapor
 /// #Рекоментации
 /// [GET] /api/v1/recomendations/stocks - Рекомендуемые к покупке
 ///
+
+struct HealthCheckController: RouteCollection {
+    func boot(routes: RoutesBuilder) throws {
+        let root = routes.grouped("health-check")
+        root.get(use: index)
+    }
+    
+    func index(req: Request) throws -> HTTPStatus {
+        return HTTPStatus.ok
+    }
+}
+
 struct UserInstrumentController: RouteCollection {
     static var calculatedUserInstrumentsTip: [String: Date] = [:]
     func boot(routes: RoutesBuilder) throws {
