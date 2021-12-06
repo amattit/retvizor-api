@@ -12,7 +12,7 @@ final class UserInstrument: Model, Content {
     static let schema = "user_instrument"
     
     @ID(key: .id)
-    var id: String?
+    var id: UUID?
     
     @Field(key: "ticker")
     var ticker: String
@@ -21,14 +21,14 @@ final class UserInstrument: Model, Content {
     var date: Date?
     
     @Field(key: "userId")
-    var userId: String
+    var userId: UUID
     
     init() {
         
     }
     
     init(with dto: CreateInstrumentRequest) {
-        self.id = UUID().uuidString
+        self.id = UUID()
         self.ticker = dto.ticker
         self.userId = dto.userId
         self.date = dto.date
@@ -39,7 +39,7 @@ final class UserInstrumentTip: Model, Content {
     static let schema = "user_instrument_tip"
     
     @ID(key: .id)
-    var id: String?
+    var id: UUID?
     
     @Timestamp(key: "create", on: .create)
     var date: Date?
@@ -48,14 +48,14 @@ final class UserInstrumentTip: Model, Content {
     var tip: String
     
     @Field(key: "userInstrumentId")
-    var instrumentId: String
+    var instrumentId: UUID
 }
 
 final class RecomendationQuote: Model, Content {
     static let schema = "recomendation_quotes"
         
-    @ID(custom: "id", generatedBy: .random)
-    var id: String?
+    @ID(key: .id)
+    var id: UUID?
     
     @Field(key: "create")
     var date: Date?
@@ -73,6 +73,8 @@ final class RecomendationQuote: Model, Content {
 }
 
 final class Quotes: Model, Content, Equatable {
+    static var schema = "quotes"
+
     static func == (lhs: Quotes, rhs: Quotes) -> Bool {
         lhs.openPrice == rhs.openPrice
         && lhs.date == rhs.date
@@ -81,10 +83,8 @@ final class Quotes: Model, Content, Equatable {
     }
     
     
-    @ID(custom: "id", generatedBy: .random)
-    var id: String?
-    
-    static var schema = "quotes"
+    @ID(key: .id)
+    var id: UUID?
     
     @Field(key: "tradeDate")
     var date: Date?
@@ -104,8 +104,8 @@ final class Quotes: Model, Content, Equatable {
 final class TradeResult: Model, Content {
     static let schema = "trade_result"
     
-    @ID(custom: "id", generatedBy: .random)
-    var id: String?
+    @ID(key: .id)
+    var id: UUID?
     
     @Field(key: "tradeDate")
     var date: Date?
@@ -121,7 +121,7 @@ final class TradeResult: Model, Content {
     
     init() {}
     
-    init(id: String? = nil, date: Date, isGood: Bool, info: String?, userId: String) {
+    init(id: UUID? = nil, date: Date, isGood: Bool, info: String?, userId: String) {
         self.id = id
         self.date = date
         self.isGood = isGood

@@ -11,10 +11,10 @@ import Fluent
 struct CreateUserInstruments: Migration {
     func prepare(on database: Database) -> EventLoopFuture<Void> {
         return database.schema(UserInstrument.schema)
-            .field("id", .string, .identifier(auto: true))
+            .id()
             .field("ticker", .string, .required)
             .field("tradeDate", .datetime, .required)
-            .field("userId", .string, .required)
+            .field("userId", .uuid, .required)
             .create()
     }
     func revert(on database: Database) -> EventLoopFuture<Void> {
@@ -25,10 +25,10 @@ struct CreateUserInstruments: Migration {
 struct CreateUserInstrumentTip: Migration {
     func prepare(on database: Database) -> EventLoopFuture<Void> {
         return database.schema(UserInstrumentTip.schema)
-            .field("id", .string, .identifier(auto: true))
+            .id()
             .field("create", .datetime, .required)
             .field("tip", .string, .required)
-            .field("userInstrumentId", .string, .required, .references(UserInstrument.schema, "id", onDelete: .cascade, onUpdate: .cascade))
+            .field("userInstrumentId", .uuid, .required, .references(UserInstrument.schema, "id", onDelete: .cascade, onUpdate: .cascade))
             .create()
     }
     
@@ -40,7 +40,7 @@ struct CreateUserInstrumentTip: Migration {
 struct CreateRecomendationQuote: Migration {
     func prepare(on database: Database) -> EventLoopFuture<Void> {
         return database.schema(RecomendationQuote.schema)
-            .field("id", .string, .identifier(auto: true))
+            .id()
             .field("create", .datetime, .required)
             .field("ticker", .string, .required)
             .field("tipPeriod", .int)
@@ -56,7 +56,7 @@ struct CreateRecomendationQuote: Migration {
 struct CreateQuotes: Migration {
     func prepare(on database: Database) -> EventLoopFuture<Void> {
         return database.schema(Quotes.schema)
-            .field("id", .string, .identifier(auto: true))
+            .id()
             .field("ticker", .string, .required)
             .field("tradeDate", .datetime, .required)
             .field("openPrice", .double)
