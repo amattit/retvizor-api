@@ -83,8 +83,8 @@ final class Quotes: Model, Content, Equatable {
     }
     
     
-    @ID(key: .id)
-    var id: UUID?
+    @ID(custom: "id")
+    var id: String?
     
     @Field(key: "tradeDate")
     var date: Date?
