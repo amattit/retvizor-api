@@ -12,7 +12,7 @@ final class UserInstrument: Model, Content {
     static let schema = "user_instrument"
     
     @ID(key: .id)
-    var id: UUID?
+    var id: String?
     
     @Field(key: "ticker")
     var ticker: String
@@ -21,14 +21,14 @@ final class UserInstrument: Model, Content {
     var date: Date?
     
     @Field(key: "userId")
-    var userId: UUID
+    var userId: String
     
     init() {
         
     }
     
     init(with dto: CreateInstrumentRequest) {
-        self.id = UUID()
+        self.id = UUID().uuidString
         self.ticker = dto.ticker
         self.userId = dto.userId
         self.date = dto.date
@@ -39,7 +39,7 @@ final class UserInstrumentTip: Model, Content {
     static let schema = "user_instrument_tip"
     
     @ID(key: .id)
-    var id: UUID?
+    var id: String?
     
     @Timestamp(key: "create", on: .create)
     var date: Date?
@@ -48,14 +48,14 @@ final class UserInstrumentTip: Model, Content {
     var tip: String
     
     @Field(key: "userInstrumentId")
-    var instrumentId: UUID
+    var instrumentId: String
 }
 
 final class RecomendationQuote: Model, Content {
     static let schema = "recomendation_quotes"
-    
-    @ID(key: .id)
-    var id: UUID?
+        
+    @ID(custom: "id", generatedBy: .random)
+    var id: String?
     
     @Field(key: "create")
     var date: Date?
@@ -81,8 +81,8 @@ final class Quotes: Model, Content, Equatable {
     }
     
     
-    @ID(key: .id)
-    var id: UUID?
+    @ID(custom: "id", generatedBy: .random)
+    var id: String?
     
     static var schema = "quotes"
     
@@ -99,4 +99,33 @@ final class Quotes: Model, Content, Equatable {
     var ticker: String
     
     init() {}
+}
+
+final class TradeResult: Model, Content {
+    static let schema = "trade_result"
+    
+    @ID(custom: "id", generatedBy: .random)
+    var id: String?
+    
+    @Field(key: "tradeDate")
+    var date: Date?
+    
+    @Field(key: "isGood")
+    var isGood: Bool
+    
+    @Field(key: "info")
+    var info: String?
+    
+    @Field(key: "userId")
+    var userId: String
+    
+    init() {}
+    
+    init(id: String? = nil, date: Date, isGood: Bool, info: String?, userId: String) {
+        self.id = id
+        self.date = date
+        self.isGood = isGood
+        self.info = info
+        self.userId = userId
+    }
 }

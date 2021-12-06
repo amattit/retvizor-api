@@ -13,18 +13,3 @@ struct CreateTodo: Migration {
     }
 }
 
-struct CreateTradeResult: Migration {
-    func prepare(on database: Database) -> EventLoopFuture<Void> {
-        return database.schema(TradeResult.schema)
-            .id()
-            .field("tradeDate", .date)
-            .field("isGood", .bool, .required)
-            .field("info", .string)
-            .field("userId", .uuid, .required)
-            .create()
-    }
-    
-    func revert(on database: Database) -> EventLoopFuture<Void> {
-        return database.schema(TradeResult.schema).delete()
-    }
-}

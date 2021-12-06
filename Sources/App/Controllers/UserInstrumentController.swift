@@ -31,7 +31,7 @@ struct HealthCheckController: RouteCollection {
 }
 
 struct UserInstrumentController: RouteCollection {
-    static var calculatedUserInstrumentsTip: [UUID: Date] = [:]
+    static var calculatedUserInstrumentsTip: [String: Date] = [:]
     func boot(routes: RoutesBuilder) throws {
         let instruments = routes.grouped("api", "v1", "user")
         
@@ -58,7 +58,7 @@ extension UserInstrumentController {
     /// Список своих инструментов
     func index(req: Request) throws -> EventLoopFuture<[UserInstrument]> {
         
-        guard let userId = UUID(uuidString: req.parameters.get("id") ?? "") else {
+        guard let userId = req.parameters.get("id") else {
             throw Abort(.notFound)
         }
         return UserInstrument
@@ -69,7 +69,7 @@ extension UserInstrumentController {
     
     func indexV2(req: Request) throws -> EventLoopFuture<[GroupedUserInstrumentsRs]> {
         
-        guard let userId = UUID(uuidString: req.parameters.get("id") ?? "") else {
+        guard let userId = req.parameters.get("id") else {
             throw Abort(.notFound)
         }
         return UserInstrument
@@ -81,7 +81,7 @@ extension UserInstrumentController {
                     partialResult[instrument.ticker, default: []].append(instrument)
                 }
                 .reduce(into: [GroupedUserInstrumentsRs]()) { partialResult, keyValue in
-                    partialResult.append(GroupedUserInstrumentsRs(id: UUID(), ticker: keyValue.key, instruments: keyValue.value))
+                    partialResult.append(GroupedUserInstrumentsRs(id: UUID().uuidString, ticker: keyValue.key, instruments: keyValue.value))
                 }
             }
     }
@@ -93,8 +93,8 @@ extension UserInstrumentController {
         
         let response = instrument.save(on: req.db)
             .map { instrument }
-        return req.client.get("https://retvizor.herokuapp.com/user_instruments/\(instrument.id?.uuidString ?? "")").tryFlatMap { data in
-            req.logger.info("call python server on https://retvizor.herokuapp.com/user_instruments/\(instrument.id?.uuidString ?? "")")
+        return req.client.get("https://retvizor.herokuapp.com/user_instruments/\(instrument.id ?? "")").tryFlatMap { data in
+            req.logger.info("call python server on https://retvizor.herokuapp.com/user_instruments/\(instrument.id ?? "")")
             req.logger.info("request returned status: \(data.status.code.description)")
             if data.status.code == 200 {
                 Self.calculatedUserInstrumentsTip[try instrument.requireID()] = Date().startOfDay
@@ -105,7 +105,7 @@ extension UserInstrumentController {
     
     /// Удаление своего инструмента
     func delete(req: Request) throws -> EventLoopFuture<HTTPStatus> {
-        guard let id = UUID(uuidString: req.parameters.get("id") ?? "") else { throw Abort(.badRequest) }
+        guard let id = req.parameters.get("id") else { throw Abort(.badRequest) }
         
         return UserInstrument.find(id, on: req.db)
             .unwrap(or: Abort(.notFound))
@@ -114,7 +114,7 @@ extension UserInstrumentController {
     }
     
     func details(req: Request) throws -> EventLoopFuture<InstrumentWithTipResponse> {
-        guard let instrumentId = UUID(uuidString: req.parameters.get("id") ?? "") else { throw Abort(.badRequest) }
+        guard let instrumentId = req.parameters.get("id") else { throw Abort(.badRequest) }
         if Self.calculatedUserInstrumentsTip[instrumentId] == Date().startOfDay {
             return try getDetails(req: req, instrumentId: instrumentId)
         } else {
@@ -129,7 +129,7 @@ extension UserInstrumentController {
         }
     }
     
-    func getDetails(req: Request, instrumentId: UUID) throws -> EventLoopFuture<InstrumentWithTipResponse> {
+    func getDetails(req: Request, instrumentId: String) throws -> EventLoopFuture<InstrumentWithTipResponse> {
         return UserInstrument
             .find(instrumentId, on: req.db)
             .unwrap(or: Abort(.notFound))
@@ -149,7 +149,7 @@ extension UserInstrumentController {
                             .all()
                             .map { quotes in
                                 InstrumentWithTipResponse(
-                                    id: instrument.id ?? UUID(),
+                                    id: instrument.id ?? "",
                                     ticker: instrument.ticker,
                                     date: instrument.date ?? Date(),
                                     tips: tips.map {
@@ -181,13 +181,13 @@ extension UserInstrumentController {
 }
 
 struct CreateInstrumentRequest: Content {
-    let userId: UUID
+    let userId: String
     let ticker: String
     let date: Date
 }
 
 struct InstrumentWithTipResponse: Content {
-    let id: UUID
+    let id: String
     let ticker: String
     let date: Date
     let tips: [Tip]; struct Tip: Content {
@@ -211,7 +211,7 @@ struct RecomendationController: RouteCollection {
 }
 
 struct GroupedUserInstrumentsRs: Content {
-    let id: UUID
+    let id: String
     let ticker: String
     let instruments: [UserInstrument]
 }

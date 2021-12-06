@@ -11,10 +11,10 @@ import Fluent
 struct CreateUserInstruments: Migration {
     func prepare(on database: Database) -> EventLoopFuture<Void> {
         return database.schema(UserInstrument.schema)
-            .id()
+            .field("id", .string, .identifier(auto: true))
             .field("ticker", .string, .required)
-            .field("tradeDate", .date, .required)
-            .field("userId", .uuid, .required)
+            .field("tradeDate", .datetime, .required)
+            .field("userId", .string, .required)
             .create()
     }
     func revert(on database: Database) -> EventLoopFuture<Void> {
@@ -25,10 +25,10 @@ struct CreateUserInstruments: Migration {
 struct CreateUserInstrumentTip: Migration {
     func prepare(on database: Database) -> EventLoopFuture<Void> {
         return database.schema(UserInstrumentTip.schema)
-            .id()
-            .field("create", .date, .required)
+            .field("id", .string, .identifier(auto: true))
+            .field("create", .datetime, .required)
             .field("tip", .string, .required)
-            .field("userInstrumentId", .uuid, .required)
+            .field("userInstrumentId", .string, .required, .references(UserInstrument.schema, "id", onDelete: .cascade, onUpdate: .cascade))
             .create()
     }
     
@@ -40,8 +40,8 @@ struct CreateUserInstrumentTip: Migration {
 struct CreateRecomendationQuote: Migration {
     func prepare(on database: Database) -> EventLoopFuture<Void> {
         return database.schema(RecomendationQuote.schema)
-            .id()
-            .field("create", .date, .required)
+            .field("id", .string, .identifier(auto: true))
+            .field("create", .datetime, .required)
             .field("ticker", .string, .required)
             .field("tipPeriod", .int)
             .field("buy", .int)
@@ -56,9 +56,9 @@ struct CreateRecomendationQuote: Migration {
 struct CreateQuotes: Migration {
     func prepare(on database: Database) -> EventLoopFuture<Void> {
         return database.schema(Quotes.schema)
-            .id()
+            .field("id", .string, .identifier(auto: true))
             .field("ticker", .string, .required)
-            .field("tradeDate", .date, .required)
+            .field("tradeDate", .datetime, .required)
             .field("openPrice", .double)
             .field("closePrice", .double)
             .field("highPrice", .double)
@@ -77,11 +77,27 @@ struct CreateQuotesActuality: Migration {
         return database.schema("quotes_actuality")
             .id()
             .field("ticker", .string, .required)
-            .field("tradeDate", .date, .required)
+            .field("tradeDate", .datetime, .required)
             .create()
     }
     
     func revert(on database: Database) -> EventLoopFuture<Void> {
         database.schema("quotes_actuality").delete()
+    }
+}
+
+struct CreateTradeResult: Migration {
+    func prepare(on database: Database) -> EventLoopFuture<Void> {
+        return database.schema(TradeResult.schema)
+            .id()
+            .field("tradeDate", .datetime)
+            .field("isGood", .bool, .required)
+            .field("info", .string)
+            .field("userId", .uuid, .required)
+            .create()
+    }
+    
+    func revert(on database: Database) -> EventLoopFuture<Void> {
+        return database.schema(TradeResult.schema).delete()
     }
 }
