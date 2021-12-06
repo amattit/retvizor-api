@@ -6,6 +6,7 @@
 //
 
 import Vapor
+import MySQLNIO
 
 
 /// #API
@@ -139,12 +140,14 @@ extension UserInstrumentController {
                     .filter(\.$instrumentId, .equal, instrumentId)
                     .all()
                     .flatMap { tips in
-                        Quotes.query(on: req.db)
+                        Quotes
+                            .query(on: req.db)
                             .group(.and) { group in
                                 group
                                     .filter(\.$ticker, .equal, instrument.ticker)
                                     .filter(\.$date, .lessThanOrEqual, Date())
                                     .filter(\.$date, .greaterThan, instrument.date)
+                                    .filter(.sql(raw: "TIME(tradeDate) > \"23:48:00\""))
                             }
                             .all()
                             .map { quotes in

@@ -9,6 +9,7 @@ public func configure(_ app: Application) throws {
     // app.middleware.use(FileMiddleware(publicDirectory: app.directory.publicDirectory))
 
     // mysql://o8ggpxenrsfpn918:ivjw9rs2xov3pcqu@d3y0lbg7abxmbuoi.chr7pe7iynqr.eu-west-1.rds.amazonaws.com:3306/abuk48ejk4359tvk
+    //mysql://retvizor:jGA76A81@retvizor-db.c97va71oz3gr.us-east-2.rds.amazonaws.com/sys
     if let databaseURL = Environment.get("JAWSDB_URL") {
         var tls = TLSConfiguration.makeClientConfiguration()
         tls.certificateVerification = .none
