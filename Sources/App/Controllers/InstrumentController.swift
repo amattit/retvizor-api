@@ -59,12 +59,8 @@ extension InstrumentController {
     
     func batchCreate(req: Request) throws -> EventLoopFuture<HTTPStatus> {
         let dto = try req.content.decode([Instrument].self)
-        return dto.map {
-            Instrument(dto: $0)
-                .save(on: req.db)
-        }
-        .flatten(on: req.eventLoop)
-        .transform(to: HTTPStatus.ok)
+        return dto.create(on: req.db)
+            .transform(to: HTTPStatus.ok)
     }
 }
 
