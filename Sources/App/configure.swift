@@ -30,17 +30,8 @@ public func configure(_ app: Application) throws {
             database: Environment.get("DATABASE_NAME") ?? "vapor_database"
         ), as: .mysql)
     }
-//    app.migrations.add(CreateTodo())
-    app.migrations.add(CreateTradeResult())
-    app.migrations.add(CreateUserInstruments())
-    app.migrations.add(CreateUserInstrumentTip())
-    app.migrations.add(CreateRecomendationQuote())
-    app.migrations.add(CreateQuotes())
-    app.migrations.add(CreateQuotesActuality())
 
     app.views.use(.leaf)
-
-    
 
     // register routes
     try routes(app)

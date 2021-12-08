@@ -15,4 +15,5 @@ func routes(_ app: Application) throws {
     try app.register(collection: RecomendationController())
     try app.register(collection: TradeResultController())
     try app.register(collection: HealthCheckController())
+    try app.register(collection: InstrumentController())
 }
