@@ -48,11 +48,13 @@ extension InstrumentController {
     func createInstrument(req: Request) throws -> EventLoopFuture<Instrument> {
         let dto = try req.content.decode(Instrument.self)
         let instrument = Instrument(dto: dto)
-        return instrument
+        let response = instrument
             .save(on: req.db)
             .map {
             return instrument
         }
+        
+        return response
     }
     
     func batchCreate(req: Request) throws -> EventLoopFuture<HTTPStatus> {
@@ -91,33 +93,31 @@ final class Instrument: Model, Content {
     @Field(key: "ticker")
     var ticker: String
     
-    @Field(key: "description")
-    var descriptions: String?
+    @OptionalField(key: "description")
+    var information: String?
     
-    @Field(key: "branch")
+    @OptionalField(key: "branch")
     var branch: String?
     
-    @Field(key: "esgCategory")
+    @OptionalField(key: "esgCategory")
     var esgCategory: String?
     
-    @Field(key: "imagePath")
+    @OptionalField(key: "imagePath")
     var imagePath: String?
     
-    @Field(key: "rating")
+    @OptionalField(key: "rating")
     var rating: String?
     
-    @Field(key: "name")
+    @OptionalField(key: "name")
     var organizationName: String?
     
-    @Field(key: "riskCategory")
+    @OptionalField(key: "riskCategory")
     var riskCategory: String?
     
     init() {}
     
     init(dto: Instrument) {
-        if id == nil && dto.id == nil {
-            id = UUID().uuidString
-        }
+        id = UUID().uuidString
         
         ticker = dto.ticker
         
@@ -125,8 +125,8 @@ final class Instrument: Model, Content {
             branch = item
         }
         
-        if let item = dto.descriptions {
-            descriptions = item
+        if let item = dto.information {
+            information = item
         }
         
         if let item = dto.esgCategory {
@@ -157,8 +157,8 @@ final class Instrument: Model, Content {
             branch = item
         }
         
-        if let item = dto.descriptions {
-            descriptions = item
+        if let item = dto.information {
+            information = item
         }
         
         if let item = dto.esgCategory {
