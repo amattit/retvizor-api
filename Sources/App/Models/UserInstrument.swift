@@ -104,7 +104,7 @@ final class Quotes: Model, Content, Equatable {
 final class TradeResult: Model, Content {
     static let schema = "trade_result"
     
-    @ID(key: .id)
+    @ID(custom: "id")
     var id: String?
     
     @Field(key: "tradeDate")
