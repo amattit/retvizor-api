@@ -129,3 +129,4 @@ final class TradeResult: Model, Content {
         self.userId = userId
     }
 }
+

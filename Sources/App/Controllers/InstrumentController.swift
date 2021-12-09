@@ -10,6 +10,8 @@ import Fluent
 
 // MARK: Controller
 struct InstrumentController: RouteCollection {
+    static var stocks: [StockRs] = []
+    
     func boot(routes: RoutesBuilder) throws {
         let instrument = routes.grouped("admin", "instruments")
         
@@ -78,6 +80,27 @@ extension InstrumentController {
                     .delete(on: req.db)
                     .transform(to: HTTPStatus.ok)
             }
+    }
+}
+
+// MARK: Public API
+extension InstrumentController {
+    func fetchStocks(_ req: Request) throws  -> EventLoopFuture<[StockRs]> {
+        if Self.stocks.isEmpty {
+            let response = Instrument
+                .query(on: req.db)
+                .all()
+                .map { item -> [StockRs] in
+                    Self.stocks = item.map {
+                        StockRs(id: $0.id ?? "", ticker: $0.ticker, displayName: $0.organizationName, image: $0.imagePath)
+                    }
+                    return Self.stocks
+                }
+            
+            return response
+        } else {
+            return req.eventLoop.makeSucceededFuture(Self.stocks)
+        }
     }
 }
 
@@ -180,4 +203,9 @@ final class Instrument: Model, Content {
         }
         return self
     }
+}
+
+struct StockRs: Content {
+    let id, ticker: String
+    let displayName, image: String?
 }
