@@ -86,12 +86,12 @@ extension UserInstrumentController {
                 .all()
                 .map {
                     $0.reduce(into: [String:[UserInstrument]]()) { partialResult, instrument in
-                        partialResult[instrument.ticker, default: []].append(instrument)
+                        partialResult[instrument.$ticker.id, default: []].append(instrument)
                     }
                     .reduce(into: [GroupedUserInstrumentsRs]()) { partialResult, keyValue in
                         let stock = stocks.first(where: { $0.ticker == keyValue.key})
                         let items = keyValue.value.map {
-                            MyStockRs(id: $0.id ?? "", ticker:$0.ticker, displayName: stock?.displayName ?? "Неизвестное название", image: stock?.image ?? "", date: $0.date ?? Date())
+                            MyStockRs(id: $0.id ?? "", ticker:$0.$ticker.id, displayName: stock?.displayName ?? "Неизвестное название", image: stock?.image ?? "", date: $0.date ?? Date())
                         }
                         partialResult.append(GroupedUserInstrumentsRs(id: UUID().uuidString, ticker: keyValue.key, instruments: items))
                     }
@@ -123,8 +123,8 @@ extension UserInstrumentController {
         
         let response = instrument.save(on: req.db)
             .map { _ -> MyStockRs in
-                let stock = InstrumentController.stocks.first(where: { $0.ticker == instrument.ticker})
-                return MyStockRs(id: instrument.id ?? "", ticker: instrument.ticker, displayName: stock?.displayName ?? "Неизвестная компания", image: stock?.image ?? "", date: instrument.date ?? Date()) }
+                let stock = InstrumentController.stocks.first(where: { $0.ticker == instrument.$ticker.id})
+                return MyStockRs(id: instrument.id ?? "", ticker: instrument.$ticker.id, displayName: stock?.displayName ?? "Неизвестная компания", image: stock?.image ?? "", date: instrument.date ?? Date()) }
         return req.client.get("https://retvizor.herokuapp.com/user_instruments/\(instrument.id ?? "")").tryFlatMap { data in
             req.logger.info("call python server on https://retvizor.herokuapp.com/user_instruments/\(instrument.id ?? "")")
             req.logger.info("request returned status: \(data.status.code.description)")
@@ -175,15 +175,16 @@ extension UserInstrumentController {
                             .query(on: req.db)
                             .group(.and) { group in
                                 group
-                                    .filter(\.$ticker, .equal, instrument.ticker)
+                                    .filter(\.$ticker, .equal, instrument.$ticker.id)
+                                    .filter(\.$date, .greaterThanOrEqual, instrument.date?.startOfDay ?? Date())
                                     .filter(\.$date, .lessThanOrEqual, Date())
-                                    .filter(\.$date, .greaterThan, instrument.date)
                             }
+                            .sort(\.$date)
                             .all()
                             .map { quotes in
                                 InstrumentWithTipResponse(
                                     id: instrument.id ?? "",
-                                    ticker: instrument.ticker,
+                                    ticker: instrument.$ticker.id,
                                     date: instrument.date ?? Date(),
                                     tips: tips.map {
                                         InstrumentWithTipResponse.Tip(
@@ -199,17 +200,9 @@ extension UserInstrumentController {
     }
     
     func mapQuotes(quotes: [Quotes]) -> [Double] {
-        var items = [Double]()
-        
-        for quote in quotes {
-            if quote == quotes.first {
-                items.append(quote.openPrice)
-            } else {
-                items.append(quote.closePrice)
-            }
+        quotes.reduce(into: [Double]()) { partialResult, item in
+            partialResult.append(item.closePrice)
         }
-        
-        return items
     }
 }
 

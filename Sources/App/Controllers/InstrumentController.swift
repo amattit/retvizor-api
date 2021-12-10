@@ -135,6 +135,9 @@ final class Instrument: Model, Content {
     @OptionalField(key: "riskCategory")
     var riskCategory: String?
     
+    @Children(for: \.$ticker)
+    var userInstruments: [UserInstrument]
+    
     init() {}
     
     init(dto: Instrument) {

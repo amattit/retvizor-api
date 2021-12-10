@@ -14,8 +14,8 @@ final class UserInstrument: Model, Content {
     @ID(custom: "id")
     var id: String?
     
-    @Field(key: "ticker")
-    var ticker: String
+    @Parent(key: "ticker")
+    var ticker: Instrument
     
     @Field(key: "tradeDate")
     var date: Date?
@@ -29,7 +29,7 @@ final class UserInstrument: Model, Content {
     
     init(with dto: CreateInstrumentRequest) {
         self.id = UUID().uuidString
-        self.ticker = dto.ticker
+        self.$ticker.id = dto.ticker
         self.userId = dto.userId.uuidString
         self.date = dto.date
     }
