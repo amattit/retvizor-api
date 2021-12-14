@@ -6,7 +6,6 @@
 //
 
 import Vapor
-import AppKit
 
 struct CandlesController: RouteCollection {
     func boot(routes: RoutesBuilder) throws {
