@@ -121,13 +121,13 @@ extension UserInstrumentController {
     func details(req: Request) throws -> EventLoopFuture<InstrumentWithTipResponse> {
         guard let instrumentId = req.parameters.get("id") else { throw Abort(.badRequest) }
         
-        return req.client.get("https://retvizor.herokuapp.com/user_instruments/\(instrumentId)").tryFlatMap { data in
+        return req.client.get("https://retvizor.herokuapp.com/user_instruments/\(instrumentId)", headers: .init([("Content-Type", "application/json")])).tryFlatMap { data in
             req.logger.info("call python server on https://retvizor.herokuapp.com/user_instruments/\(instrumentId)")
             req.logger.info("request returned status: \(data.status.code.description)")
             if data.status.code == 200 {
-                let data = try data.content.decode(InstrumentRecomendationRs.self)
-                Self.calculatedUserInstrumentsTip[instrumentId] = Date().startOfDay
-                return try getDetails(req: req, instrumentId: instrumentId, recommendation: data)
+                if let data = try? data.content.decode(InstrumentRecomendationRs.self) {
+                    return try getDetails(req: req, instrumentId: instrumentId, recommendation: data)
+                }
             }
             return try getDetails(req: req, instrumentId: instrumentId, recommendation: nil)
         }
