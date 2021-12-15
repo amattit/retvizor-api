@@ -120,6 +120,21 @@ final class Quote: Hashable, Equatable, Content {
     var ticker: String?
 }
 
+extension Quote: CustomStringConvertible {
+    var description: String {
+        """
+        open: \(open ?? 0),
+        close: \(close ?? 0),
+        high: \(high ?? 0),
+        low: \(low ?? 0),
+        value: \(value ?? 0),
+        volume: \(volume ?? 0),
+        begin: \(begin ?? ""),
+        end: \(end ?? "")
+        """
+    }
+}
+
 
 public extension Date {
     var endOfDay: Date {

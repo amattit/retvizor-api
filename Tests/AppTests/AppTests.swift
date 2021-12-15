@@ -27,8 +27,6 @@ final class AppTests: XCTestCase {
         try configure(app)
         
         let request = CreateInstrumentRequest(userId: userId, ticker: "AFLT", date: Date().advanced(by: -60*60*24*5))
-        let data = try encoder.encode(request)
-        let string = String(data: data, encoding: .utf8)
         let buffer = ByteBuffer(data: try encoder.encode(request))
         try app.test(.POST, "api/v1/user/instruments", headers: .init([("Content-Type", "application/json")]), body: buffer, afterResponse: { response in
             let string = response.body.string

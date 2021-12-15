@@ -20,7 +20,7 @@ public func configure(_ app: Application) throws {
         let database = String(urlComponents?.path.dropFirst() ?? "")
         let config = MySQLConfiguration(hostname: host, port: port, username: user, password: password, database: database, tlsConfiguration: tls)
         
-        app.databases.use(.mysql(configuration: config), as: .mysql)
+        app.databases.use(.mysql(configuration: config, connectionPoolTimeout: .minutes(1)), as: .mysql)
     } else {
         app.databases.use(.mysql(
             hostname: Environment.get("DATABASE_HOST") ?? "localhost",
