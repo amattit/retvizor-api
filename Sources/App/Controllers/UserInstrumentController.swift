@@ -6,8 +6,6 @@
 //
 
 import Vapor
-import MySQLNIO
-
 
 /// #API
 /// #Свои инструменты
@@ -21,18 +19,6 @@ import MySQLNIO
 ///
 /// #Список инструментов
 /// [GET] /api/v1/instruments
-
-struct HealthCheckController: RouteCollection {
-    func boot(routes: RoutesBuilder) throws {
-        let root = routes.grouped("health-check")
-        root.get(use: index)
-    }
-    
-    func index(req: Request) throws -> HTTPStatus {
-        return HTTPStatus.ok
-    }
-}
-
 struct UserInstrumentController: RouteCollection {
     static var calculatedUserInstrumentsTip: [String: Date] = [:]
     func boot(routes: RoutesBuilder) throws {
@@ -101,19 +87,6 @@ extension UserInstrumentController {
                 }
             
         }
-        
-//        return UserInstrument
-//            .query(on: req.db)
-//            .filter(\.$userId, .equal, userId)
-//            .all()
-//            .map {
-//                $0.reduce(into: [String:[UserInstrument]]()) { partialResult, instrument in
-//                    partialResult[instrument.ticker, default: []].append(instrument)
-//                }
-//                .reduce(into: [GroupedUserInstrumentsRs]()) { partialResult, keyValue in
-//                    partialResult.append(GroupedUserInstrumentsRs(id: UUID().uuidString, ticker: keyValue.key, instruments: keyValue.value))
-//                }
-//            }
     }
     
     /// Добавление нового инструмента
@@ -224,32 +197,6 @@ struct InstrumentWithTipResponse: Content {
     let quotes: [Double]
 }
 
-struct RecomendationController: RouteCollection {
-    func boot(routes: RoutesBuilder) throws {
-        let recomendation = routes.grouped("api", "v1", "recomendations", "stocks")
-        
-        recomendation.get(use: index)
-    }
-    
-    func index(req: Request) throws -> EventLoopFuture<[RecomendationResponse]> {
-        return try InstrumentController().fetchStocks(req).flatMap { stocks in
-            RecomendationQuote.query(on: req.db).filter(\.$buy, .equal, 1).all().map { recomenations in
-                recomenations
-                    .reduce(into: [String: [RecomendationQuote]]()) { partialResult, recomendation in
-                        partialResult[recomendation.ticker, default: []].append(recomendation)
-                    }
-                    .reduce(into: [RecomendationResponse]()) { partialResult, keyValue in
-                        let stock = stocks.first(where: {$0.ticker == keyValue.key})!
-                        partialResult.append(RecomendationResponse(id: UUID().uuidString, stock: stock, recomendation: keyValue.value.sorted(by: { l, r in
-                            l.date ?? Date() > r.date ?? Date()
-                        })))
-                    }
-                
-            }
-        }
-    }
-}
-
 struct GroupedUserInstrumentsRs: Content {
     let id: String
     let ticker: String
@@ -269,8 +216,3 @@ struct MyStockRs: Content {
     let date: Date
 }
 
-struct RecomendationResponse: Content {
-    let id: String
-    let stock: StockRs
-    let recomendation: [RecomendationQuote]
-}
