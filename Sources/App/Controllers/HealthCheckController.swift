@@ -20,7 +20,7 @@ struct HealthCheckController: RouteCollection {
     
     func allRoutes(req: Request) throws -> [RouteRs] {
         return req.application.routes.all.map {
-            RouteRs(info: $0.description)
+            RouteRs(route: $0.description)
         }
     }
 }

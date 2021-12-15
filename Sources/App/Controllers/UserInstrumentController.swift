@@ -120,54 +120,45 @@ extension UserInstrumentController {
     
     func details(req: Request) throws -> EventLoopFuture<InstrumentWithTipResponse> {
         guard let instrumentId = req.parameters.get("id") else { throw Abort(.badRequest) }
-        if Self.calculatedUserInstrumentsTip[instrumentId] == Date().startOfDay {
-            return try getDetails(req: req, instrumentId: instrumentId)
-        } else {
-            return req.client.get("https://retvizor.herokuapp.com/user_instruments/\(instrumentId)").tryFlatMap { data in
-                req.logger.info("call python server on https://retvizor.herokuapp.com/user_instruments/\(instrumentId)")
-                req.logger.info("request returned status: \(data.status.code.description)")
-                if data.status.code == 200 {
-                    Self.calculatedUserInstrumentsTip[instrumentId] = Date().startOfDay
-                }
-                return try getDetails(req: req, instrumentId: instrumentId)
+        
+        return req.client.get("https://retvizor.herokuapp.com/user_instruments/\(instrumentId)").tryFlatMap { data in
+            req.logger.info("call python server on https://retvizor.herokuapp.com/user_instruments/\(instrumentId)")
+            req.logger.info("request returned status: \(data.status.code.description)")
+            if data.status.code == 200 {
+                let data = try data.content.decode(InstrumentRecomendationRs.self)
+                Self.calculatedUserInstrumentsTip[instrumentId] = Date().startOfDay
+                return try getDetails(req: req, instrumentId: instrumentId, recommendation: data)
             }
+            return try getDetails(req: req, instrumentId: instrumentId, recommendation: nil)
         }
     }
     
-    func getDetails(req: Request, instrumentId: String) throws -> EventLoopFuture<InstrumentWithTipResponse> {
+    func getDetails(req: Request, instrumentId: String, recommendation: InstrumentRecomendationRs?) throws -> EventLoopFuture<InstrumentWithTipResponse> {
         return UserInstrument
             .find(instrumentId, on: req.db)
             .unwrap(or: Abort(.notFound))
             .flatMap { instrument in
-                UserInstrumentTip
+                Quotes
                     .query(on: req.db)
-                    .filter(\.$instrumentId, .equal, instrumentId)
+                    .group(.and) { group in
+                        group
+                            .filter(\.$ticker, .equal, instrument.$ticker.id)
+                            .filter(\.$date, .greaterThanOrEqual, instrument.date?.startOfDay ?? Date())
+                            .filter(\.$date, .lessThanOrEqual, Date())
+                    }
+                    .sort(\.$date)
                     .all()
-                    .flatMap { tips in
-                        Quotes
-                            .query(on: req.db)
-                            .group(.and) { group in
-                                group
-                                    .filter(\.$ticker, .equal, instrument.$ticker.id)
-                                    .filter(\.$date, .greaterThanOrEqual, instrument.date?.startOfDay ?? Date())
-                                    .filter(\.$date, .lessThanOrEqual, Date())
-                            }
-                            .sort(\.$date)
-                            .all()
-                            .map { quotes in
-                                InstrumentWithTipResponse(
-                                    id: instrument.id ?? "",
-                                    ticker: instrument.$ticker.id,
-                                    date: instrument.date ?? Date(),
-                                    tips: tips.map {
-                                        InstrumentWithTipResponse.Tip(
-                                            date: $0.date ?? Date(),
-                                            description: $0.tip
-                                        )
-                                    },
-                                    quotes: mapQuotes(quotes: quotes)
-                                )
-                            }
+                    .map { quotes in
+                        InstrumentWithTipResponse(
+                            id: instrument.id ?? "",
+                            ticker: instrument.$ticker.id,
+                            date: instrument.date ?? Date(),
+                            tips: [
+                                .init(date: Date(), description: recommendation?.recommendation ?? ""),
+                                .init(date: Date(), description: recommendation?.requiredReturn?.description ?? "0"),
+                            ],
+                            quotes: mapQuotes(quotes: quotes)
+                        )
                     }
             }
     }
@@ -216,3 +207,7 @@ struct MyStockRs: Content {
     let date: Date
 }
 
+struct InstrumentRecomendationRs: Content {
+    let recommendation: String?
+    let requiredReturn: Double?
+}
