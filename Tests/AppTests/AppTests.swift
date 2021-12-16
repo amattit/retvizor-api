@@ -33,4 +33,8 @@ final class AppTests: XCTestCase {
             print(string)
         })
     }
+    
+    func testGetSomething() throws {
+        
+    }
 }

@@ -149,7 +149,19 @@ extension UserInstrumentController {
                     .sort(\.$date)
                     .all()
                     .map { quotes in
-                        InstrumentWithTipResponse(
+                        let first = quotes.first?.closePrice ?? 0
+                        let summRevenue = quotes
+                            .reduce(into: [Double]()) { partialResult, item in
+                                partialResult.append((item.closePrice / first - 1) * 100)
+                            }
+                            .last
+                        let sr = summRevenue ?? 0
+                        let rr = recommendation?.requiredReturn ?? 0
+                        let requiredReturnRecommendation = sr < rr
+                        ? "акция имеет потенциал роста за текущий период с \(instrument.date?.shortFormat ?? "") в размере \(rr) - \(sr)%"
+                        : ""
+                        
+                        return InstrumentWithTipResponse(
                             id: instrument.id ?? "",
                             ticker: instrument.$ticker.id,
                             date: instrument.date ?? Date(),
@@ -198,6 +210,12 @@ extension Date {
     var startOfDay: Date {
         let calendar = Calendar.current
         return calendar.startOfDay(for: self)
+    }
+    
+    var shortFormat: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "dd.MM.YYYY"
+        return formatter.string(from: self)
     }
 }
 

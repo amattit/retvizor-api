@@ -37,20 +37,6 @@ extension PopularQuotesController {
                     $0.score > $1.score
                 }
             }
-//            .flatMap {
-//                $0.map { instrument in
-//                    instrument.$userInstruments
-//                        .query(on: req.db)
-//                        .count()
-//                        .map { count in
-//                            return PopularQuotesRs(
-//                                instrument: instrument,
-//                                score: count
-//                            )
-//                        }
-//                }
-//                .flatten(on: req.eventLoop)
-//            }
     }
 }
 

@@ -10,23 +10,86 @@ import Vapor
 struct CandlesController: RouteCollection {
     func boot(routes: RoutesBuilder) throws {
         routes.get("api", "v1", "quotes","daily", ":ticker", use: index)
+        routes.get("api", "v1", "quotes", ":ticker", use: all)
+    }
+}
+
+struct MoexService {
+    static let scheme = "https"
+    static let host = "iss.moex.com"
+    
+    static func build(_ payload: String, queryParams: [String: String]) -> URI {
+        var componrnts = URLComponents()
+        componrnts.scheme = scheme
+        componrnts.host = host
+        componrnts.path = "/iss/engines/stock/markets/shares/securities/\(payload)/candles.json"
+        componrnts.queryItems = queryParams.compactMap {
+            URLQueryItem(name: $0.key, value: $0.value)
+        }
+        let string = componrnts.string ?? ""
+        return URI(string: string)
     }
 }
 
 extension CandlesController {
+    func all(req: Request) throws -> EventLoopFuture<[Quote]> {
+        guard let ticker = req.parameters.get("ticker") else { throw Abort(.badRequest) }
+//        let params: [String: String] = [
+//            "from": "\(Date(stringLiteral: "2015-01-01")) 00:00:00",
+//            "till": "\(Date().onlyDate) 23:59:59",
+//            "interval": "24"
+//        ]
+        
+//        let uri = MoexService.build(ticker, queryParams: params)
+        let uris = getURIForYears(2015...Date().year, ticker: ticker)
+        
+        let array = uris.map { uri in
+            return req
+                .client
+                .get(uri)
+                .map { response -> [Quote] in
+                    if let data = try? response.content.decode(Result.self) {
+                        return self.map(data, ticker: ticker)
+                    } else {
+                        return []
+                    }
+                }
+        }
+            .flatten(on: req.eventLoop)
+        return array.map { $0.flatMap { $0 } }
+        
+//        return getURIForYears([], ticker: <#T##String#>)
+//        return req
+//            .client
+//            .get(uri)
+//            .tryFlatMap { response in
+//                let data = try response.content.decode(Result.self)
+//                return req.eventLoop.future(self.map(data, ticker: ticker))
+//            }
+    }
+    
+    func getURIForYears(_ years: ClosedRange<Int>, ticker: String) -> [URI] {
+        let intervals = years.map { year in
+            Date.dateInterval(for: year)
+        }
+        
+        return intervals.map { interval in
+            let params: [String: String] = [
+                "from": "\(interval.start.onlyDate)) 00:00:00",
+                "till": "\(interval.end.onlyDate) 23:59:59",
+                "interval": "24"
+            ]
+            return MoexService.build(ticker, queryParams: params)
+        }
+    }
+    
     func index(req: Request) throws -> EventLoopFuture<[Quote]> {
         guard let ticker = req.parameters.get("ticker") else { throw Abort(.badRequest)}
-        var componrnts = URLComponents()
-        componrnts.queryItems = [
-            URLQueryItem(name: "from", value: "\(Date().onlyDate) 00:00:00"),
-            URLQueryItem(name: "till", value: "\(Date().onlyDate) 23:59:59"),
-            URLQueryItem(name: "interval", value: 1.description)
-        ]
-        componrnts.scheme = "https"
-        componrnts.host = "iss.moex.com"
-        componrnts.path = "/iss/engines/stock/markets/shares/securities/\(ticker)/candles.json"
-        let string = componrnts.string ?? ""
-        let uri = URI(string: string)
+        let uri = MoexService.build(ticker, queryParams: [
+            "from": "\(Date().onlyDate) 00:00:00",
+            "till": "\(Date().onlyDate) 23:59:59",
+            "interval": "24"
+        ])
         return req.client
             .get(uri)
             .tryFlatMap { response in
@@ -135,6 +198,19 @@ extension Quote: CustomStringConvertible {
     }
 }
 
+extension Date: ExpressibleByStringLiteral {
+    public typealias StringLiteralType = String
+    
+    public init(stringLiteral value: String) {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "YYYY-MM-dd"
+        self = formatter.date(from: value) ?? Date()
+    }
+    
+    static func dateInterval(for year: Int) -> DateInterval {
+        DateInterval(start: Date(stringLiteral: "\(year)-01-01"), end: Date())
+    }
+}
 
 public extension Date {
     var endOfDay: Date {
@@ -149,6 +225,10 @@ public extension Date {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "YYYY-MM-dd"
         return dateFormatter.string(from: self)
+    }
+    
+    var year: Int {
+        Calendar.current.component(.year, from: self)
     }
 }
     
