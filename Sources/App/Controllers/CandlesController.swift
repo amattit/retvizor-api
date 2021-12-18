@@ -33,17 +33,11 @@ struct MoexService {
 
 extension CandlesController {
     func all(req: Request) throws -> EventLoopFuture<[Quote]> {
-        guard let ticker = req.parameters.get("ticker") else { throw Abort(.badRequest) }
-//        let params: [String: String] = [
-//            "from": "\(Date(stringLiteral: "2015-01-01")) 00:00:00",
-//            "till": "\(Date().onlyDate) 23:59:59",
-//            "interval": "24"
-//        ]
-        
-//        let uri = MoexService.build(ticker, queryParams: params)
+        guard let ticker = req.parameters.get("ticker") else { throw Abort(.badRequest, reason: "Должен быть path параметр ticker") }
+
         let uris = getURIForYears(2015...Date().year, ticker: ticker)
         
-        let array = uris.map { uri in
+        return uris.map { uri in
             return req
                 .client
                 .get(uri)
@@ -56,16 +50,7 @@ extension CandlesController {
                 }
         }
             .flatten(on: req.eventLoop)
-        return array.map { $0.flatMap { $0 } }
-        
-//        return getURIForYears([], ticker: <#T##String#>)
-//        return req
-//            .client
-//            .get(uri)
-//            .tryFlatMap { response in
-//                let data = try response.content.decode(Result.self)
-//                return req.eventLoop.future(self.map(data, ticker: ticker))
-//            }
+            .map { $0.flatMap { $0 } }
     }
     
     func getURIForYears(_ years: ClosedRange<Int>, ticker: String) -> [URI] {
@@ -90,12 +75,26 @@ extension CandlesController {
             "till": "\(Date().onlyDate) 23:59:59",
             "interval": "24"
         ])
-        return req.client
-            .get(uri)
-            .tryFlatMap { response in
-                let data = try response.content.decode(Result.self)
-                return req.eventLoop.future(self.map(data, ticker: ticker).suffix(50))
-            }
+        
+        
+        if Date().isWeekend {
+            return Quotes
+                .getLastQuote(for: ticker, on: req.db)
+                .map {
+                    let quote = Quote()
+                    quote.open = $0.openPrice
+                    quote.close = $0.closePrice
+                    quote.ticker = $0.ticker
+                    return [quote]
+                }
+        } else {
+            return req.client
+                .get(uri)
+                .tryFlatMap { response in
+                    let data = try response.content.decode(Result.self)
+                    return req.eventLoop.future(self.map(data, ticker: ticker).suffix(50))
+                }
+        }
     }
     
     func map(_ result: Result, ticker: String) -> [Quote] {
@@ -160,6 +159,12 @@ extension CandlesController {
     }
 }
 
+extension Date {
+    var isWeekend: Bool {
+        Calendar.current.isDateInWeekend(self)
+    }
+}
+
 final class Quote: Hashable, Equatable, Content {
     
     func hash(into hasher: inout Hasher) {
@@ -181,6 +186,8 @@ final class Quote: Hashable, Equatable, Content {
     var open, close, high, low, value, volume: Double?
     var begin, end: String?
     var ticker: String?
+    
+    init() {}
 }
 
 extension Quote: CustomStringConvertible {

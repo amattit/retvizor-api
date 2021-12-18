@@ -72,7 +72,7 @@ extension InstrumentController {
 extension InstrumentController {
     func delete(req: Request) throws -> EventLoopFuture<HTTPStatus> {
         guard let id = req.parameters.get("id")
-        else { throw Abort(.badRequest) }
+        else { throw Abort(.badRequest, reason: "Должен быть path параметр id инструмента") }
         return Instrument.find(id, on: req.db)
             .unwrap(or: Abort(.notFound))
             .flatMap {
@@ -137,6 +137,10 @@ final class Instrument: Model, Content {
     
     @Children(for: \.$ticker)
     var userInstruments: [UserInstrument]
+    
+    // TODO: Пока непонятно, понадобится или нет
+    @Children(for: \.$instrument)
+    var transactions: [Transaction]
     
     init() {}
     
@@ -211,4 +215,13 @@ final class Instrument: Model, Content {
 struct StockRs: Content {
     let id, ticker: String
     let displayName, image: String?
+}
+
+extension Instrument {
+    static func getSet(for tickers: [String], in db: Database) -> EventLoopFuture<[Instrument]> {
+        Instrument
+            .query(on: db)
+            .filter(\.$ticker ~~ tickers)
+            .all()
+    }
 }

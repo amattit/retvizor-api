@@ -20,8 +20,11 @@ final class UserInstrument: Model, Content {
     @Field(key: "tradeDate")
     var date: Date?
     
-    @Field(key: "userId")
-    var userId: String
+    @Parent(key: "userId")
+    var user: User
+    
+    @Children(for: \.$userInstrument)
+    var transactions: [Transaction]
     
     init() {
         
@@ -30,7 +33,7 @@ final class UserInstrument: Model, Content {
     init(with dto: CreateInstrumentRequest) {
         self.id = UUID().uuidString
         self.$ticker.id = dto.ticker
-        self.userId = dto.userId.uuidString
+        self.$user.id = dto.userId.uuidString
         self.date = dto.date
     }
 }
@@ -99,6 +102,15 @@ final class Quotes: Model, Content, Equatable {
     var ticker: String
     
     init() {}
+    
+    static func getLastQuote(for ticker: String, on db: Database) -> EventLoopFuture<Quotes> {
+        Quotes
+            .query(on: db)
+            .filter(\.$ticker == ticker)
+            .sort(\.$date)
+            .first()
+            .unwrap(or: Abort(.notFound))
+    }
 }
 
 final class TradeResult: Model, Content {

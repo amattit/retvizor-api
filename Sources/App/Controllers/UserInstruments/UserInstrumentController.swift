@@ -20,7 +20,7 @@ import Vapor
 /// #Список инструментов
 /// [GET] /api/v1/instruments
 struct UserInstrumentController: RouteCollection {
-    static var calculatedUserInstrumentsTip: [String: Date] = [:]
+    let mapper = Mapper()
     func boot(routes: RoutesBuilder) throws {
         
         let i = routes.grouped("api", "v1", "instruments")
@@ -49,16 +49,23 @@ struct UserInstrumentController: RouteCollection {
 
 extension UserInstrumentController {
     /// Список своих инструментов
-    func index(req: Request) throws -> EventLoopFuture<[UserInstrument]> {
+    func index(req: Request) throws -> EventLoopFuture<[StockItemRs]> {
+        let userId = req.parameters.get("id")
         
-        guard let userId = req.parameters.get("id") else {
-            throw Abort(.notFound)
+        return User
+            .getTransactions(for: userId, on: req.db)
+            .map { transactions -> EventLoopFuture<[StockItemRs]> in
+            
+            let tickers = transactions.map { $0.$instrument.id }
+            let instruments = Instrument.getSet(for: tickers, in: req.db)
+            return instruments.map {
+                mapper.mapStockRs(from: $0, and: transactions)
+            }
         }
-        return UserInstrument
-            .query(on: req.db)
-            .filter(\.$userId, .equal, userId)
-            .all()
+            .flatMap { $0 }
     }
+    
+    
     
     func indexV2(req: Request) throws -> EventLoopFuture<[GroupedUserInstrumentsRs]> {
         guard let userId = req.parameters.get("id") else {
@@ -68,7 +75,7 @@ extension UserInstrumentController {
         return try InstrumentController().fetchStocks(req).flatMap { stocks in
             return UserInstrument
                 .query(on: req.db)
-                .filter(\.$userId, .equal, userId)
+                .filter(\.$user.$id, .equal, userId)
                 .all()
                 .map {
                     $0.reduce(into: [String:[UserInstrument]]()) { partialResult, instrument in
@@ -96,14 +103,24 @@ extension UserInstrumentController {
         
         let response = instrument.save(on: req.db)
             .map { _ -> MyStockRs in
+                if let count = dto.count {
+                    let instruments = (1...count).map { _ in
+                        Transaction(
+                            openPrice: dto.price ?? 0,
+                            openDate: dto.date,
+                            comment: dto.comment,
+                            ticker: dto.ticker,
+                            userId: dto.userId.uuidString,
+                            userInstrumentId: instrument.id ?? ""
+                        )
+                    }
+                    _ = instruments.create(on: req.db)
+                }
                 let stock = InstrumentController.stocks.first(where: { $0.ticker == instrument.$ticker.id})
                 return MyStockRs(id: instrument.id ?? "", ticker: instrument.$ticker.id, displayName: stock?.displayName ?? "Неизвестная компания", image: stock?.image ?? "", date: instrument.date ?? Date()) }
         return req.client.get("https://retvizor.herokuapp.com/user_instruments/\(instrument.id ?? "")").tryFlatMap { data in
             req.logger.info("call python server on https://retvizor.herokuapp.com/user_instruments/\(instrument.id ?? "")")
             req.logger.info("request returned status: \(data.status.code.description)")
-            if data.status.code == 200 {
-                Self.calculatedUserInstrumentsTip[instrument.id ?? ""] = Date().startOfDay
-            }
             return response
         }
     }
@@ -133,7 +150,7 @@ extension UserInstrumentController {
         }
     }
     
-    func getDetails(req: Request, instrumentId: String, recommendation: InstrumentRecomendationRs?) throws -> EventLoopFuture<InstrumentWithTipResponse> {
+    private func getDetails(req: Request, instrumentId: String, recommendation: InstrumentRecomendationRs?) throws -> EventLoopFuture<InstrumentWithTipResponse> {
         return UserInstrument
             .find(instrumentId, on: req.db)
             .unwrap(or: Abort(.notFound))
@@ -158,6 +175,7 @@ extension UserInstrumentController {
                         let sr = summRevenue ?? 0
                         let rr = recommendation?.requiredReturn ?? 0
                         let requiredReturnRecommendation = sr < rr
+                        // TODO: доделать
                         ? "акция имеет потенциал роста за текущий период с \(instrument.date?.shortFormat ?? "") в размере \(rr) - \(sr)%"
                         : ""
                         
@@ -167,65 +185,11 @@ extension UserInstrumentController {
                             date: instrument.date ?? Date(),
                             tips: [
                                 .init(date: Date(), description: recommendation?.recommendation ?? ""),
-                                .init(date: Date(), description: recommendation?.requiredReturn?.description ?? "0"),
+                                .init(date: Date(), description: requiredReturnRecommendation),
                             ],
-                            quotes: mapQuotes(quotes: quotes)
+                            quotes: mapper.mapQuotes(quotes: quotes)
                         )
                     }
             }
     }
-    
-    func mapQuotes(quotes: [Quotes]) -> [Double] {
-        quotes.reduce(into: [Double]()) { partialResult, item in
-            partialResult.append(item.closePrice)
-        }
-    }
-}
-
-struct CreateInstrumentRequest: Content {
-    let userId: UUID
-    let ticker: String
-    let date: Date
-}
-
-struct InstrumentWithTipResponse: Content {
-    let id: String
-    let ticker: String
-    let date: Date
-    let tips: [Tip]; struct Tip: Content {
-        let date: Date
-        let description: String
-    }
-    
-    let quotes: [Double]
-}
-
-struct GroupedUserInstrumentsRs: Content {
-    let id: String
-    let ticker: String
-    let instruments: [MyStockRs]
-}
-
-extension Date {
-    var startOfDay: Date {
-        let calendar = Calendar.current
-        return calendar.startOfDay(for: self)
-    }
-    
-    var shortFormat: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "dd.MM.YYYY"
-        return formatter.string(from: self)
-    }
-}
-
-struct MyStockRs: Content {
-    let id: String
-    let ticker, displayName, image: String
-    let date: Date
-}
-
-struct InstrumentRecomendationRs: Content {
-    let recommendation: String?
-    let requiredReturn: Double?
 }
