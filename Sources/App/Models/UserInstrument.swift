@@ -107,7 +107,7 @@ final class Quotes: Model, Content, Equatable {
         Quotes
             .query(on: db)
             .filter(\.$ticker == ticker)
-            .sort(\.$date)
+            .sort(\.$date, .descending)
             .first()
             .unwrap(or: Abort(.notFound))
     }
