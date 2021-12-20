@@ -6,6 +6,7 @@
 //
 
 import Vapor
+import FluentKit
 
 /// #API
 /// #Свои инструменты
@@ -44,6 +45,8 @@ struct UserInstrumentController: RouteCollection {
         }
         
         instruments.grouped("instruments").post(use: create)
+        
+        routes.post("api", "v1", "instruments", "sell", use: sell)
     }
 }
 
@@ -192,4 +195,137 @@ extension UserInstrumentController {
                     }
             }
     }
+}
+
+extension UserInstrumentController {
+    func sell(req: Request) throws -> EventLoopFuture<HTTPStatus> {
+        let dto = try req.content.decode(SellRq.self)
+        return getPrice(for: dto.ticker, on: req).flatMap { quotes in
+            if let lastPrice = quotes.last {
+                return User
+                    .getTransactions(for: dto.userId, on: req.db, state: .opened)
+                    .flatMap { transactions -> EventLoopFuture<HTTPStatus> in
+                        let trans = transactions
+                            .filter { $0.$instrument.id == dto.ticker }
+                            .sorted { lhs, rhs in
+                                lhs.openDate < rhs.openDate
+                            }
+                        if trans.count < dto.count {
+                            return req.eventLoop.future(HTTPStatus.badRequest)
+                        } else {
+                            return trans
+                                .prefix(dto.count)
+                                .reduce(into: [Transaction]()) { partialResult, item in
+                                    item.closeDate =  Date()
+                                    item.closePrice = lastPrice.close
+                                    item.sellComment = dto.comment
+                                    partialResult.append(item)
+                                }
+                                .map { transaction in
+                                    transaction.save(on: req.db)
+                                }
+                                .flatten(on: req.eventLoop)
+                                .transform(to: HTTPStatus.ok)
+                        }
+                }
+            } else {
+                return req.eventLoop.future(HTTPStatus.badRequest)
+            }
+        }
+    }
+    
+    private func getPrice(for ticker: String, on req: Request) -> EventLoopFuture<[Quote]> {
+        let uri = MoexService.build(ticker, queryParams: [
+            "from": "\(Date().onlyDate) 00:00:00",
+            "till": "\(Date().onlyDate) 23:59:59",
+            "interval": "24"
+        ])
+        
+        if Date().isWeekend {
+            return Quotes
+                .getLastQuote(for: ticker, on: req.db)
+                .map {
+                    let quote = Quote()
+                    quote.open = $0.openPrice
+                    quote.close = $0.closePrice
+                    quote.ticker = $0.ticker
+                    return [quote]
+                }
+        } else {
+            return req.client
+                .get(uri)
+                .tryFlatMap { response in
+                    let data = try response.content.decode(Result.self)
+                    return req.eventLoop.future(self.map(data, ticker: ticker).suffix(50))
+                }
+        }
+    }
+    
+    private func map(_ result: Result, ticker: String) -> [Quote] {
+        result.candles.data.map { array in
+            let quote = Quote()
+            for i in 0..<result.candles.columns.count {
+                switch i {
+                case 0:
+                    switch array[0] {
+                    case .double(let str):
+                        quote.open = str
+                    default: break
+                    }
+                case 1:
+                    switch array[1] {
+                    case .double(let str):
+                        quote.close = str
+                    default: break
+                    }
+                case 2:
+                    switch array[2] {
+                    case .double(let str):
+                        quote.high = str
+                    default: break
+                    }
+                case 3:
+                    switch array[3] {
+                    case .double(let str):
+                        quote.low = str
+                    default: break
+                    }
+                case 4:
+                    switch array[4] {
+                    case .double(let str):
+                        quote.value = str
+                    default: break
+                    }
+                case 5:
+                    switch array[5] {
+                    case .double(let str):
+                        quote.volume = str
+                    default: break
+                    }
+                case 6:
+                    switch array[6] {
+                    case .string(let str):
+                        quote.begin = str
+                    default: break
+                    }
+                case 7:
+                    switch array[7] {
+                    case .string(let str):
+                        quote.end = str
+                    default: break
+                    }
+                default: break
+                }
+            }
+            quote.ticker = ticker
+            return quote
+        }
+    }
+}
+
+struct SellRq: Content {
+    let userId: String
+    let ticker: String
+    let count: Int
+    let comment: String?
 }

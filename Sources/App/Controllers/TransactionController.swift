@@ -168,6 +168,9 @@ final class Transaction: Model, Content {
     @Field(key: "comment")
     var comment: String?
     
+    @Field(key: "sellComment")
+    var sellComment: String?
+    
     @Parent(key: "ticker")
     var instrument: Instrument
     
