@@ -20,6 +20,9 @@ struct InstrumentController: RouteCollection {
         instrument.post(use: createInstrument)
         instrument.post("batch", use: batchCreate)
         instrument.delete(":id", use: delete)
+        
+        // public
+        routes.get("api", "v1", "instruments", use: fetchInstrument)
     }
 }
 
@@ -53,8 +56,8 @@ extension InstrumentController {
         let response = instrument
             .save(on: req.db)
             .map {
-            return instrument
-        }
+                return instrument
+            }
         
         return response
     }
@@ -102,6 +105,123 @@ extension InstrumentController {
             return req.eventLoop.makeSucceededFuture(Self.stocks)
         }
     }
+    
+    func fetchInstrument(_ req: Request) throws -> EventLoopFuture<StockDetailsRs> {
+        let dto = try req.query.decode(StockRq.self)
+        
+        return Instrument
+            .query(on: req.db)
+            .filter(\.$ticker == dto.ticker)
+            .first()
+            .unwrap(or: Abort(.notFound, reason: "Инструмент с тикером \(dto.ticker) не найден"))
+            .flatMap { instrument -> EventLoopFuture<StockDetailsRs> in
+                if dto.userId == nil {
+                    let response =  StockDetailsRs(
+                        info: StockRs(
+                            id: instrument.id ?? "",
+                            ticker: instrument.ticker,
+                            displayName: instrument.organizationName ?? "",
+                            image: instrument.imagePath
+                        ),
+                        journal: []
+                    )
+                    return req.eventLoop.future(response)
+                } else {
+                    return Transaction
+                        .query(on: req.db)
+                        .filter(\.$user.$id == dto.userId!)
+                        .filter(\.$instrument.$id == dto.ticker)
+                        .filter(\.$closeDate == nil)
+                        .all()
+                        .flatMap { transactions in
+                            Instrument.getSet(for: Array(Set(transactions.map { $0.$instrument.id })), in: req.db).map { instruments in
+                                return StockDetailsRs(
+                                    info: StockRs(
+                                        id: instrument.id ?? "",
+                                        ticker: instrument.ticker,
+                                        displayName: instrument.organizationName ?? "",
+                                        image: instrument.imagePath
+                                    ),
+                                    journal: mapJournal(transactions: transactions, instruments: instruments)
+                                )
+                            }
+                        }
+                }
+            }
+    }
+    
+    func mapJournal(transactions: [Transaction], instruments: [Instrument]) -> [JournalRs] {
+        var result = [JournalRs]()
+        let buyTransactions = transactions.reduce(into: [Date: [Transaction]]()) { partialResult, item in
+            partialResult[item.openDate, default: []].append(item)
+        }
+        
+        for (date, transactions) in buyTransactions {
+            let transactionsByTicker = mapByTicker(transactions: transactions)
+            for (ticker, transactions) in transactionsByTicker {
+                if let instrument = instruments.first(where: { $0.ticker == ticker }), let firstTransaction = transactions.first {
+                    let journalItem = JournalRs(
+                        id: UUID().uuidString,
+                        displayName: instrument.organizationName ?? "",
+                        ticker: ticker,
+                        imagePath: instrument.imagePath,
+                        count: transactions.count,
+                        price: Decimal(firstTransaction.openPrice),
+                        comment: firstTransaction.comment,
+                        date: date,
+                        type: .buy
+                    )
+                    result.append(journalItem)
+                }
+            }
+        }
+        
+        
+        let sellTransactions = transactions.reduce(into: [Date: [Transaction]]()) { partialResult, item in
+            if let date = item.closeDate {
+                partialResult[date, default: []].append(item)
+            }
+        }
+        
+        for (date, transactions) in sellTransactions {
+            let transactionsByTicker = mapByTicker(transactions: transactions)
+            for (ticker, transactions) in transactionsByTicker {
+                if let instrument = instruments.first(where: { $0.ticker == ticker }), let firstTransaction = transactions.first {
+                    let journalItem = JournalRs(
+                        id: UUID().uuidString,
+                        displayName: instrument.organizationName ?? "",
+                        ticker: ticker,
+                        imagePath: instrument.imagePath,
+                        count: transactions.count,
+                        price: Decimal(firstTransaction.closePrice ?? 0),
+                        comment: firstTransaction.sellComment,
+                        date: date,
+                        type: .sell
+                    )
+                    result.append(journalItem)
+                }
+            }
+        }
+        return result.sorted { lhs, rhs in
+            lhs.date < rhs.date
+        }
+    }
+    
+    func mapByTicker(transactions: [Transaction]) -> [String: [Transaction]] {
+        transactions.reduce(into: [String: [Transaction]]()) { partialResult, item in
+            partialResult[item.$instrument.id, default: []].append(item)
+        }
+    }
+}
+
+struct StockRq: Content {
+    let userId: String?
+    let ticker: String
+}
+
+struct StockDetailsRs: Content {
+    let info: StockRs
+    let journal: [JournalRs]
 }
 
 // MARK: - Models

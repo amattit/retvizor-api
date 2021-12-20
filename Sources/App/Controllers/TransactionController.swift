@@ -100,7 +100,7 @@ extension TransactionController {
                         imagePath: instrument.imagePath,
                         count: transactions.count,
                         price: Decimal(firstTransaction.closePrice ?? 0),
-                        comment: firstTransaction.comment,
+                        comment: firstTransaction.sellComment,
                         date: date,
                         type: .sell
                     )
