@@ -22,10 +22,13 @@ struct RecomendationController: RouteCollection {
                         partialResult[recomendation.ticker, default: []].append(recomendation)
                     }
                     .reduce(into: [RecomendationResponse]()) { partialResult, keyValue in
-                        let stock = stocks.first(where: {$0.ticker == keyValue.key})!
-                        partialResult.append(RecomendationResponse(id: UUID().uuidString, stock: stock, recomendation: keyValue.value.sorted(by: { l, r in
-                            l.date ?? Date() > r.date ?? Date()
-                        })))
+                        if let stock = stocks.first(where: {$0.ticker == keyValue.key}) {
+                            partialResult.append(RecomendationResponse(id: UUID().uuidString, stock: stock, recomendation: keyValue.value.sorted(by: { l, r in
+                                l.date ?? Date() > r.date ?? Date()
+                            })))
+                        } else {
+                            req.logger.info("\(keyValue.key) не найден в бумагах")
+                        }
                     }
                 
             }
