@@ -73,7 +73,7 @@ extension CandlesController {
         let uri = MoexService.build(ticker, queryParams: [
             "from": "\(Date().onlyDate) 00:00:00",
             "till": "\(Date().onlyDate) 23:59:59",
-            "interval": "24"
+            "interval": "1"
         ])
         
         
