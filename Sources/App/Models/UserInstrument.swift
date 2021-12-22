@@ -111,6 +111,13 @@ final class Quotes: Model, Content, Equatable {
             .first()
             .unwrap(or: Abort(.notFound))
     }
+    
+    static func getLastQuote(for tickers: [String], on req: Request) -> EventLoopFuture<[Quotes]> {
+        tickers.map {
+            Quotes.getLastQuote(for: $0, on: req.db)
+        }
+        .flatten(on: req.eventLoop)
+    }
 }
 
 final class TradeResult: Model, Content {

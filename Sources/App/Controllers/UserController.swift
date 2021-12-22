@@ -21,9 +21,9 @@ extension UserController {
         return User
             .query(on: req.db)
             .filter(\.$id == userRq.userId)
-            .first()
-            .flatMap { user -> EventLoopFuture<User> in
-                if user == nil {
+            .all()
+            .flatMap { users -> EventLoopFuture<User> in
+                if users.count == 0 {
                     let user = User(userid: userRq.userId)
                     return user
                         .save(on: req.db)
@@ -31,7 +31,11 @@ extension UserController {
                             return user
                         }
                 } else {
-                    return req.eventLoop.future(user!)
+                    if let user = users.first {
+                        return req.eventLoop.future(user)
+                    } else {
+                        return req.eventLoop.future(error: Abort(.unauthorized))
+                    }
                 }
             }
     }
