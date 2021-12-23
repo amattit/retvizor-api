@@ -19,16 +19,26 @@ struct MoexService {
     static let scheme = "https"
     static let host = "iss.moex.com"
     
+    static let index = "index"
+    static let quotes = "shares"
+    
+//     http://iss.moex.com/iss/engines/stock/markets/index/securities/imoex/candles.csv?from={start_dt}&till={en_dt}&interval=24
     static func build(_ payload: String, queryParams: [String: String]) -> URI {
+        let type = isIndex(payload) ? index : quotes
         var componrnts = URLComponents()
         componrnts.scheme = scheme
         componrnts.host = host
-        componrnts.path = "/iss/engines/stock/markets/shares/securities/\(payload)/candles.json"
+        componrnts.path = "/iss/engines/stock/markets/\(type)/securities/\(payload)/candles.json"
         componrnts.queryItems = queryParams.compactMap {
             URLQueryItem(name: $0.key, value: $0.value)
         }
         let string = componrnts.string ?? ""
         return URI(string: string)
+    }
+    
+    
+    private static func isIndex(_ payload: String) -> Bool {
+        payload.uppercased() == "IMOEX" ? true : false
     }
 }
 
