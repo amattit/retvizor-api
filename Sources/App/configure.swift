@@ -2,6 +2,8 @@ import Fluent
 import FluentMySQLDriver
 import Leaf
 import Vapor
+import Queues
+import QueuesRedisDriver
 
 // configures your application
 public func configure(_ app: Application) throws {
@@ -30,7 +32,40 @@ public func configure(_ app: Application) throws {
             database: Environment.get("DATABASE_NAME") ?? "vapor_database"
         ), as: .mysql)
     }
+    
+    if let redisUrl = Environment.get("REDIS_URL") {        
+        try app.queues.use(.redis(RedisConfiguration(url: redisUrl, pool: RedisConfiguration.PoolOptions(
+            maximumConnectionCount: RedisConnectionPoolSize.maximumActiveConnections(20),
+            minimumConnectionCount: 0,
+            connectionBackoffFactor: 0,
+            initialConnectionBackoffDelay: .seconds(10),
+            connectionRetryTimeout: .seconds(1)))))
+        let job = QuoteUpdateJob()
+        app.queues.add(job)
+        try app.queues.startInProcessJobs(on: .default)
+    }
 
+    app.get("api", "v1", "quotes", "update") { req -> EventLoopFuture<HTTPStatus> in
+        return Quotes
+            .query(on: req.db)
+            .filter(\.$date > Date().advanced(by: -3600 * 24 * 3))
+            .sort(\.$date)
+            .all()
+            .flatMap {
+                $0
+                    .reduce(into: [String: Quotes]()) { partialResult, item in
+                        partialResult[item.ticker] = item
+                    }
+                    .reduce(into: [Quotes]()) { partialResult, item in
+                        partialResult.append(item.value)
+                    }
+                    .map {
+                        return req.queue.dispatch(QuoteUpdateJob.self, $0)
+                    }
+                    .flatten(on: req.eventLoop)
+                .transform(to: HTTPStatus.ok)
+            }
+    }
     app.views.use(.leaf)
 
     // register routes

@@ -101,6 +101,15 @@ final class Quotes: Model, Content, Equatable {
     @Field(key: "ticker")
     var ticker: String
     
+    @Field(key: "volume")
+    var volume: Double?
+    
+    @Field(key: "lowPrice")
+    var lowPrice: Double?
+    
+    @Field(key: "highPrice")
+    var highPrice: Double?
+    
     init() {}
     
     static func getLastQuote(for ticker: String, on db: Database) -> EventLoopFuture<Quotes> {
@@ -117,6 +126,16 @@ final class Quotes: Model, Content, Equatable {
             Quotes.getLastQuote(for: $0, on: req.db)
         }
         .flatten(on: req.eventLoop)
+    }
+}
+
+extension Quotes: CustomStringConvertible {
+    var description: String {
+        """
+        id: \(id ?? ""),
+        ticker: \(ticker),
+        date: \(date ?? "")
+        """
     }
 }
 
