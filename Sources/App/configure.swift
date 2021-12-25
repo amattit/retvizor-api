@@ -4,6 +4,7 @@ import Leaf
 import Vapor
 import Queues
 import QueuesRedisDriver
+import Redis
 
 // configures your application
 public func configure(_ app: Application) throws {
@@ -33,9 +34,9 @@ public func configure(_ app: Application) throws {
         ), as: .mysql)
     }
     
-    if let redisUrl = Environment.get("REDIS_URL") {        
+    if let redisUrl = Environment.get("REDIS_URL") {
         try app.queues.use(.redis(RedisConfiguration(url: redisUrl, pool: RedisConfiguration.PoolOptions(
-            maximumConnectionCount: RedisConnectionPoolSize.maximumActiveConnections(20),
+            maximumConnectionCount: RedisConnectionPoolSize.maximumActiveConnections(15),
             minimumConnectionCount: 0,
             connectionBackoffFactor: 0,
             initialConnectionBackoffDelay: .seconds(10),

@@ -15,7 +15,10 @@ struct RecomendationController: RouteCollection {
         
         let rec = routes.grouped("api", "v1", "recommendations")
         rec.get(use: self.rec)
+        rec.grouped(":ticker", "buy").get(use: tickerBuyRecommendationByPeriods)
         
+        let sell = routes.grouped("api","v1","recommendations", "sell")
+        sell.post(use: tickerSellRecommendations)
     }
     
     func index(req: Request) throws -> EventLoopFuture<[RecomendationResponse]> {
@@ -63,6 +66,45 @@ struct RecomendationController: RouteCollection {
                     }
                 }
             }
+    }
+    
+    func tickerBuyRecommendationByPeriods(req: Request) throws -> EventLoopFuture<[RecomendationRs.Period]> {
+        guard let ticker = req.parameters.get("ticker") else { throw Abort(.badRequest, reason: "Не указан тикер")}
+        return RecomendationQuote
+            .query(on: req.db)
+            .filter(\.$ticker == ticker)
+            .filter(\.$date > Date().startOfDay.advanced(by: -3600 * 24 * 3))
+            .filter(\.$buy == 1)
+            .sort(\.$date)
+            .all()
+            .map { periods in
+                periods
+                    .reduce(into: [Int: RecomendationQuote](), { partialResult, item in
+                        partialResult[item.tipPeriod] = item
+                    })
+                    .map { $0.value }
+                    .map {
+                    RecomendationRs.Period.init(id: $0.id ?? "", date: $0.date ?? Date(), period: $0.tipPeriod, buy: $0.buy)
+                }
+            }
+    }
+    
+    func tickerSellRecommendations(req: Request) throws -> EventLoopFuture<[SellRecommendationRs]> {
+//        guard let userId = req.headers.first(name: "X-UserID") else { throw Abort(.badRequest, reason: "Не указан UserID") }
+        let requestedItems = try req.content.decode([SellRecommendationRq].self)
+        return try requestedItems.map { journalItem in
+            return try RecommendationService.call(
+                uri: RecommendationService.buildSellUri(ticker: journalItem.ticker, date: journalItem.date),
+                client: req.client, id: journalItem.id)
+        }
+        .flatten(on: req.eventLoop)
+        .map { $0.flatMap { $0 }}
+    }
+    
+    struct SellRecommendationRq: Content {
+        let id: String
+        let ticker: String
+        let date: Date
     }
     
     func popular(req: Request) throws -> EventLoopFuture<[RecomendationRs]> {
@@ -132,6 +174,11 @@ struct RecomendationController: RouteCollection {
     }
 }
 
+struct SellRecommendationRs: Content {
+    let id: String
+    let text: String
+}
+
 struct RecomendationResponse: Content {
     let id: String
     let stock: StockRs
@@ -154,4 +201,45 @@ struct RecomendationRs: Content {
     }
     let score: Int?
     let price: Decimal
+}
+
+struct RecommendationService {
+    static var scheme = "https"
+    static var host = "retvizor.herokuapp.com"
+    
+    static func buildSellUri(ticker: String, date: Date) -> URI {
+        var urlComponents = URLComponents()
+        urlComponents.scheme = scheme
+        urlComponents.host = host
+        urlComponents.path = "/recomendations/sell/\(date.retvizorDate)/\(ticker)"
+        let string = urlComponents.string ?? ""
+        return URI(string: string)
+    }
+    
+    static func call(uri: URI, client: Client, id: String) throws -> EventLoopFuture<[SellRecommendationRs]> {
+        client.get(uri, headers: .init([("Content-Type", "application/json")])).map { response -> [SellRecommendationRs]in
+            if let rs = try? response.content.decode(RecommendationTipRs.self) {
+                let result = [
+                    SellRecommendationRs(id: id, text: rs.tipSell),
+                    SellRecommendationRs(id: id, text: rs.tipReqRet),
+                ]
+                return result
+            } else {
+                return [SellRecommendationRs]()
+            }
+        }
+    }
+    
+    struct RecommendationTipRs: Codable {
+        let tipSell: String
+        let tipReqRet: String
+    }
+ }
+
+extension Date {
+    var retvizorDate: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd"
+        return formatter.string(from: self)
+    }
 }
