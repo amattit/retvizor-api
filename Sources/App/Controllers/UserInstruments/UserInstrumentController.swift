@@ -256,69 +256,8 @@ extension UserInstrumentController {
                 .get(uri)
                 .tryFlatMap { response in
                     let data = try response.content.decode(Result.self)
-                    return req.eventLoop.future(self.map(data, ticker: ticker).suffix(50))
+                    return req.eventLoop.future(MoexService.map(data, ticker: ticker).suffix(50))
                 }
-        }
-    }
-    
-    private func map(_ result: Result, ticker: String) -> [Quote] {
-        result.candles.data.map { array in
-            let quote = Quote()
-            for i in 0..<result.candles.columns.count {
-                switch i {
-                case 0:
-                    switch array[0] {
-                    case .double(let str):
-                        quote.open = str
-                    default: break
-                    }
-                case 1:
-                    switch array[1] {
-                    case .double(let str):
-                        quote.close = str
-                    default: break
-                    }
-                case 2:
-                    switch array[2] {
-                    case .double(let str):
-                        quote.high = str
-                    default: break
-                    }
-                case 3:
-                    switch array[3] {
-                    case .double(let str):
-                        quote.low = str
-                    default: break
-                    }
-                case 4:
-                    switch array[4] {
-                    case .double(let str):
-                        quote.value = str
-                    default: break
-                    }
-                case 5:
-                    switch array[5] {
-                    case .double(let str):
-                        quote.volume = str
-                    default: break
-                    }
-                case 6:
-                    switch array[6] {
-                    case .string(let str):
-                        quote.begin = str
-                    default: break
-                    }
-                case 7:
-                    switch array[7] {
-                    case .string(let str):
-                        quote.end = str
-                    default: break
-                    }
-                default: break
-                }
-            }
-            quote.ticker = ticker
-            return quote
         }
     }
 }

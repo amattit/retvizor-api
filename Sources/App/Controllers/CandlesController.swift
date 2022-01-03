@@ -40,75 +40,8 @@ struct MoexService {
     private static func isIndex(_ payload: String) -> Bool {
         payload.uppercased() == "IMOEX" ? true : false
     }
-}
-
-extension CandlesController {
-    func all(req: Request) throws -> EventLoopFuture<[Quote]> {
-        guard let ticker = req.parameters.get("ticker") else { throw Abort(.badRequest, reason: "Должен быть path параметр ticker") }
-
-        let uris = getURIForYears(2015...Date().year, ticker: ticker)
-        
-        return uris.map { uri in
-            return req
-                .client
-                .get(uri)
-                .map { response -> [Quote] in
-                    if let data = try? response.content.decode(Result.self) {
-                        return self.map(data, ticker: ticker)
-                    } else {
-                        return []
-                    }
-                }
-        }
-            .flatten(on: req.eventLoop)
-            .map { $0.flatMap { $0 } }
-    }
     
-    func getURIForYears(_ years: ClosedRange<Int>, ticker: String) -> [URI] {
-        let intervals = years.map { year in
-            Date.dateInterval(for: year)
-        }
-        
-        return intervals.map { interval in
-            let params: [String: String] = [
-                "from": "\(interval.start.onlyDate)) 00:00:00",
-                "till": "\(interval.end.onlyDate) 23:59:59",
-                "interval": "24"
-            ]
-            return MoexService.build(ticker, queryParams: params)
-        }
-    }
-    
-    func index(req: Request) throws -> EventLoopFuture<[Quote]> {
-        guard let ticker = req.parameters.get("ticker") else { throw Abort(.badRequest)}
-        let uri = MoexService.build(ticker, queryParams: [
-            "from": "\(Date().onlyDate) 00:00:00",
-            "till": "\(Date().onlyDate) 23:59:59",
-            "interval": "1"
-        ])
-        
-        
-        if Date().isWeekend {
-            return Quotes
-                .getLastQuote(for: ticker, on: req.db)
-                .map {
-                    let quote = Quote()
-                    quote.open = $0.openPrice
-                    quote.close = $0.closePrice
-                    quote.ticker = $0.ticker
-                    return [quote]
-                }
-        } else {
-            return req.client
-                .get(uri)
-                .tryFlatMap { response in
-                    let data = try response.content.decode(Result.self)
-                    return req.eventLoop.future(self.map(data, ticker: ticker).suffix(50))
-                }
-        }
-    }
-    
-    func map(_ result: Result, ticker: String) -> [Quote] {
+    static func map(_ result: Result, ticker: String) -> [Quote] {
         result.candles.data.map { array in
             let quote = Quote()
             for i in 0..<result.candles.columns.count {
@@ -166,6 +99,73 @@ extension CandlesController {
             }
             quote.ticker = ticker
             return quote
+        }
+    }
+}
+
+extension CandlesController {
+    func all(req: Request) throws -> EventLoopFuture<[Quote]> {
+        guard let ticker = req.parameters.get("ticker") else { throw Abort(.badRequest, reason: "Должен быть path параметр ticker") }
+
+        let uris = getURIForYears(2015...Date().year, ticker: ticker)
+        
+        return uris.map { uri in
+            return req
+                .client
+                .get(uri)
+                .map { response -> [Quote] in
+                    if let data = try? response.content.decode(Result.self) {
+                        return MoexService.map(data, ticker: ticker)
+                    } else {
+                        return []
+                    }
+                }
+        }
+            .flatten(on: req.eventLoop)
+            .map { $0.flatMap { $0 } }
+    }
+    
+    func getURIForYears(_ years: ClosedRange<Int>, ticker: String) -> [URI] {
+        let intervals = years.map { year in
+            Date.dateInterval(for: year)
+        }
+        
+        return intervals.map { interval in
+            let params: [String: String] = [
+                "from": "\(interval.start.onlyDate)) 00:00:00",
+                "till": "\(interval.end.onlyDate) 23:59:59",
+                "interval": "24"
+            ]
+            return MoexService.build(ticker, queryParams: params)
+        }
+    }
+    
+    func index(req: Request) throws -> EventLoopFuture<[Quote]> {
+        guard let ticker = req.parameters.get("ticker") else { throw Abort(.badRequest)}
+        let uri = MoexService.build(ticker, queryParams: [
+            "from": "\(Date().onlyDate) 00:00:00",
+            "till": "\(Date().onlyDate) 23:59:59",
+            "interval": "1"
+        ])
+        
+        
+        if Date().isWeekend {
+            return Quotes
+                .getLastQuote(for: ticker, on: req.db)
+                .map {
+                    let quote = Quote()
+                    quote.open = $0.openPrice
+                    quote.close = $0.closePrice
+                    quote.ticker = $0.ticker
+                    return [quote]
+                }
+        } else {
+            return req.client
+                .get(uri)
+                .tryFlatMap { response in
+                    let data = try response.content.decode(Result.self)
+                    return req.eventLoop.future(MoexService.map(data, ticker: ticker).suffix(50))
+                }
         }
     }
 }
